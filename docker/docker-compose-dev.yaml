@@ -35,7 +35,7 @@ services:
       # Set these in your shell before running docker-compose:
       #   export DEER_FLOW_ROOT=/absolute/path/to/deer-flow
       - SKILLS_HOST_PATH=${DEER_FLOW_ROOT}/skills
-      - THREADS_HOST_PATH=${DEER_FLOW_ROOT}/backend/.deer-flow/threads
+      - THREADS_HOST_PATH=${DEER_FLOW_ROOT}/backend/.deerflow/threads
       - KUBECONFIG_PATH=/root/.kube/config
       - NODE_HOST=host.docker.internal
       # Override K8S API server URL since kubeconfig uses 127.0.0.1
@@ -129,7 +129,8 @@ services:
     working_dir: /app
     environment:
       - CI=true
-      - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_ROOT}/backend/.deer-flow
+      - DEER_FLOW_HOME=/app/backend/.deerflow
+      - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_ROOT}/backend/.deerflow
       - DEER_FLOW_HOST_SKILLS_PATH=${DEER_FLOW_ROOT}/skills
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
     env_file:
@@ -165,7 +166,8 @@ services:
     working_dir: /app
     environment:
       - CI=true
-      - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_ROOT}/backend/.deer-flow
+      - DEER_FLOW_HOME=/app/backend/.deerflow
+      - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_ROOT}/backend/.deerflow
       - DEER_FLOW_HOST_SKILLS_PATH=${DEER_FLOW_ROOT}/skills
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
     env_file:

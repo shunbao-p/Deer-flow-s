@@ -1,0 +1,1 @@
+这是一个测试文件，用于验证 write_file 和 read_file 工具的权限。
