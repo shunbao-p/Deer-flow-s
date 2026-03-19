@@ -89,7 +89,9 @@ services:
       - ../frontend/src:/app/frontend/src
       - ../frontend/public:/app/frontend/public
       - ../frontend/next.config.js:/app/frontend/next.config.js:ro
-      - ../logs:/app/logs
+      # Use configurable host logs directory to avoid stale Docker Desktop
+      # bind-mount cache collisions on specific paths.
+      - ${DEER_FLOW_LOGS_PATH:-../.deer-flow-logs}:/app/logs
       # Mount pnpm store for caching
       - ${PNPM_STORE_PATH:-~/.local/share/pnpm/store}:/root/.local/share/pnpm/store
     working_dir: /app
@@ -119,7 +121,7 @@ services:
       - ../config.yaml:/app/config.yaml
       - ../extensions_config.json:/app/extensions_config.json
       - ../skills:/app/skills
-      - ../logs:/app/logs
+      - ${DEER_FLOW_LOGS_PATH:-../.deer-flow-logs}:/app/logs
       # Mount uv cache for faster dependency installation
       - ~/.cache/uv:/root/.cache/uv
       # DooD: same as gateway — AioSandboxProvider runs inside LangGraph process.
@@ -155,7 +157,7 @@ services:
       - ../config.yaml:/app/config.yaml
       - ../extensions_config.json:/app/extensions_config.json
       - ../skills:/app/skills
-      - ../logs:/app/logs
+      - ${DEER_FLOW_LOGS_PATH:-../.deer-flow-logs}:/app/logs
       # Mount uv cache for faster dependency installation
       - ~/.cache/uv:/root/.cache/uv
       # DooD: same as gateway — AioSandboxProvider runs inside LangGraph process.
