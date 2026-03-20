@@ -1,0 +1,17 @@
+{
+  "eval_id": 2,
+  "prompt": "今天有什么科技新闻？",
+  "expected_output": "技能应触发并使用web_search查询最新科技新闻，返回针对科技类别的新闻摘要报告",
+  "configs": {
+    "with_skill": {
+      "tools": ["web_search", "web_fetch"],
+      "skill_path": "/mnt/user-data/workspace/news-skill/SKILL.md",
+      "skill_name": "news-skill"
+    },
+    "without_skill": {
+      "tools": ["web_search", "web_fetch"]
+    }
+  },
+  "created_at": "2026-03-20T00:00:00Z",
+  "eval_type": "news_query"
+}

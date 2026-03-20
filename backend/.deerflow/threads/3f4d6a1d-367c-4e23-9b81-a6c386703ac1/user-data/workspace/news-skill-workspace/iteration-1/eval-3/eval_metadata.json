@@ -1,0 +1,17 @@
+{
+  "eval_id": 3,
+  "prompt": "告诉我今天的财经头条",
+  "expected_output": "技能应触发并使用web_search查询最新财经新闻，返回针对财经类别的新闻摘要报告",
+  "configs": {
+    "with_skill": {
+      "tools": ["web_search", "web_fetch"],
+      "skill_path": "/mnt/user-data/workspace/news-skill/SKILL.md",
+      "skill_name": "news-skill"
+    },
+    "without_skill": {
+      "tools": ["web_search", "web_fetch"]
+    }
+  },
+  "created_at": "2026-03-20T00:00:00Z",
+  "eval_type": "news_query"
+}

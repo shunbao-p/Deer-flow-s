@@ -1,0 +1,26 @@
+{
+  "skill_name": "news-query",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "今日全球最热新闻是什么？",
+      "expected_output": "技能应触发并使用web_search查询最新全球热门新闻，返回包含多个新闻摘要的结构化报告，包括标题、来源、摘要和链接",
+      "files": [],
+      "expectations": []
+    },
+    {
+      "id": 2,
+      "prompt": "今天有什么科技新闻？",
+      "expected_output": "技能应触发并使用web_search查询最新科技新闻，返回针对科技类别的新闻摘要报告",
+      "files": [],
+      "expectations": []
+    },
+    {
+      "id": 3,
+      "prompt": "告诉我今天的财经头条",
+      "expected_output": "技能应触发并使用web_search查询最新财经新闻，返回针对财经类别的新闻摘要报告",
+      "files": [],
+      "expectations": []
+    }
+  ]
+}

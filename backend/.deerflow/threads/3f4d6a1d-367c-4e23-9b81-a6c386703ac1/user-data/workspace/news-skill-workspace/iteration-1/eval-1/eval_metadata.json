@@ -1,0 +1,17 @@
+{
+  "eval_id": 1,
+  "prompt": "今日全球最热新闻是什么？",
+  "expected_output": "技能应触发并使用web_search查询最新全球热门新闻，返回包含多个新闻摘要的结构化报告，包括标题、来源、摘要和链接",
+  "configs": {
+    "with_skill": {
+      "tools": ["web_search", "web_fetch"],
+      "skill_path": "/mnt/user-data/workspace/news-skill/SKILL.md",
+      "skill_name": "news-skill"
+    },
+    "without_skill": {
+      "tools": ["web_search", "web_fetch"]
+    }
+  },
+  "created_at": "2026-03-20T00:00:00Z",
+  "eval_type": "news_query"
+}

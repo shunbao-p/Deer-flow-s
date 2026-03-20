@@ -1,0 +1,25 @@
+{
+  "total_tokens": 1427,
+  "duration_ms": 3850,
+  "tool_calls": [
+    {
+      "tool": "web_search",
+      "duration_ms": 2150,
+      "tokens_used": 0,
+      "timestamp": "2026-03-20T02:30:15.123Z"
+    },
+    {
+      "tool": "response_generation",
+      "duration_ms": 1700,
+      "tokens_used": 1427,
+      "timestamp": "2026-03-20T02:30:19.873Z"
+    }
+  ],
+  "skill_triggered": true,
+  "skill_name": "news-skill",
+  "confidence_score": 0.92,
+  "search_queries": ["今天科技新闻 2026年3月20日 最新科技头条"],
+  "sources_processed": 4,
+  "news_items_extracted": 8,
+  "response_length_chars": 4236
+}
