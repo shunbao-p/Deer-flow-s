@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Awaitable, Callable
+from pathlib import PurePosixPath
 from typing import NotRequired, override
 
 from langchain.agents import AgentState
@@ -12,10 +13,11 @@ from langchain_core.messages import SystemMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-from deerflow.agents.thread_state import SkillCreationState
+from deerflow.agents.thread_state import SkillCreationState, SkillLifecycleState
 
 _INSTALL_SKILL_TOOL = "install_skill"
 _EVALUATE_SKILL_CREATION_TOOL = "evaluate_skill_creation"
+_EVALUATE_SKILL_LIFECYCLE_TOOL = "evaluate_skill_lifecycle"
 _MISSING_TOOL_CALL_ID = "missing_tool_call_id"
 _DEFAULT_MAX_AUTO_CREATE_ATTEMPTS = 2
 _INSTALL_SUCCESS_RE = re.compile(r"Skill '([^']+)' installed successfully")
@@ -27,6 +29,7 @@ class SkillCreationGuardMiddlewareState(AgentState):
     """Compatible with the `ThreadState` schema."""
 
     skill_creation: NotRequired[SkillCreationState | None]
+    skill_lifecycle: NotRequired[SkillLifecycleState | None]
 
 
 class SkillCreationGuardMiddleware(AgentMiddleware[SkillCreationGuardMiddlewareState]):
@@ -56,6 +59,30 @@ class SkillCreationGuardMiddleware(AgentMiddleware[SkillCreationGuardMiddlewareS
             "last_policy_allowed": current.get("last_policy_allowed"),
             "last_policy_reason": current.get("last_policy_reason"),
         }
+
+    def _get_lifecycle_state(self, state: SkillCreationGuardMiddlewareState) -> SkillLifecycleState:
+        current = state.get("skill_lifecycle") or {}
+        return {
+            "last_check_outcome": current.get("last_check_outcome"),
+            "last_reason": current.get("last_reason"),
+            "checked_candidate_name": current.get("checked_candidate_name"),
+            "primary_skill_name": current.get("primary_skill_name"),
+            "primary_skill_path": current.get("primary_skill_path"),
+            "primary_skill_enabled": current.get("primary_skill_enabled"),
+            "matched_skill_names": list(current.get("matched_skill_names") or []),
+            "disable_recommendations": list(current.get("disable_recommendations") or []),
+        }
+
+    def _runtime_target_name(self, request: ToolCallRequest) -> str | None:
+        args = request.tool_call.get("args", {})
+        expected_name = args.get("expected_skill_name")
+        if isinstance(expected_name, str) and expected_name.strip():
+            return expected_name.strip()
+
+        path = args.get("path")
+        if not isinstance(path, str) or not path.strip():
+            return None
+        return PurePosixPath(path).stem or None
 
     def _is_runtime_auto_create_install(self, request: ToolCallRequest) -> bool:
         if request.tool_call.get("name") != _INSTALL_SKILL_TOOL:
@@ -150,6 +177,65 @@ class SkillCreationGuardMiddleware(AgentMiddleware[SkillCreationGuardMiddlewareS
         new_state = self._build_updated_state(current, self._extract_tool_message(result))
         return self._with_skill_creation_update(result, new_state)
 
+    def _validate_runtime_install_preconditions(self, request: ToolCallRequest) -> Command | None:
+        guard_state = self._get_guard_state(request.state)
+        installed = guard_state.get("installed_skill_names") or []
+        attempts = int(guard_state.get("auto_create_attempts") or 0)
+        last_policy_allowed = guard_state.get("last_policy_allowed")
+        last_policy_reason = guard_state.get("last_policy_reason")
+        lifecycle_state = self._get_lifecycle_state(request.state)
+        lifecycle_outcome = lifecycle_state.get("last_check_outcome")
+        checked_candidate_name = lifecycle_state.get("checked_candidate_name")
+        runtime_target_name = self._runtime_target_name(request)
+
+        if installed:
+            names = ", ".join(installed)
+            return self._build_block_message(
+                request,
+                f"Runtime skill auto-creation is blocked because this thread already installed: {names}.",
+            )
+
+        if attempts >= self.max_auto_create_attempts:
+            return self._build_block_message(
+                request,
+                "Runtime skill auto-creation retry limit reached for this thread.",
+            )
+
+        if lifecycle_outcome != "no_match":
+            reason = lifecycle_outcome or "missing_lifecycle_check"
+            primary = lifecycle_state.get("primary_skill_name")
+            suffix = f" Primary match: {primary}." if primary else ""
+            return self._build_block_message(
+                request,
+                "Runtime skill auto-creation requires a `no_match` result from "
+                f"`{_EVALUATE_SKILL_LIFECYCLE_TOOL}` first. Current lifecycle state: {reason}.{suffix}",
+            )
+
+        if not checked_candidate_name:
+            return self._build_block_message(
+                request,
+                "Runtime skill auto-creation requires a recorded candidate name from "
+                f"`{_EVALUATE_SKILL_LIFECYCLE_TOOL}` before installation.",
+            )
+
+        if runtime_target_name and runtime_target_name != checked_candidate_name:
+            return self._build_block_message(
+                request,
+                "Runtime skill auto-creation install target does not match the most recent "
+                f"lifecycle-approved candidate. Approved: {checked_candidate_name}; "
+                f"attempted: {runtime_target_name}.",
+            )
+
+        if last_policy_allowed is not True:
+            reason = last_policy_reason or "missing_policy_decision"
+            return self._build_block_message(
+                request,
+                "Runtime skill auto-creation requires an ALLOW result from "
+                f"`{_EVALUATE_SKILL_CREATION_TOOL}` first. Current policy state: {reason}.",
+            )
+
+        return None
+
     @override
     def before_model(self, state: SkillCreationGuardMiddlewareState, runtime) -> dict | None: #在模型下一次思考前，给模型注入提醒
         guard_state = self._get_guard_state(state)
@@ -208,32 +294,9 @@ class SkillCreationGuardMiddleware(AgentMiddleware[SkillCreationGuardMiddlewareS
         if not self._is_runtime_auto_create_install(request):
             return handler(request)
 
-        guard_state = self._get_guard_state(request.state)
-        installed = guard_state.get("installed_skill_names") or []
-        attempts = int(guard_state.get("auto_create_attempts") or 0)
-        last_policy_allowed = guard_state.get("last_policy_allowed")
-        last_policy_reason = guard_state.get("last_policy_reason")
-
-        if installed:
-            names = ", ".join(installed)
-            return self._build_block_message(
-                request,
-                f"Runtime skill auto-creation is blocked because this thread already installed: {names}.",
-            )
-
-        if attempts >= self.max_auto_create_attempts:
-            return self._build_block_message(
-                request,
-                "Runtime skill auto-creation retry limit reached for this thread.",
-            )
-
-        if last_policy_allowed is not True:
-            reason = last_policy_reason or "missing_policy_decision"
-            return self._build_block_message(
-                request,
-                "Runtime skill auto-creation requires an ALLOW result from "
-                f"`{_EVALUATE_SKILL_CREATION_TOOL}` first. Current policy state: {reason}.",
-            )
+        blocked = self._validate_runtime_install_preconditions(request)
+        if blocked is not None:
+            return blocked
 
         result = handler(request)
         return self._handle_runtime_install(request.state, request, result)
@@ -247,32 +310,9 @@ class SkillCreationGuardMiddleware(AgentMiddleware[SkillCreationGuardMiddlewareS
         if not self._is_runtime_auto_create_install(request):
             return await handler(request)
 
-        guard_state = self._get_guard_state(request.state)
-        installed = guard_state.get("installed_skill_names") or []
-        attempts = int(guard_state.get("auto_create_attempts") or 0)
-        last_policy_allowed = guard_state.get("last_policy_allowed")
-        last_policy_reason = guard_state.get("last_policy_reason")
-
-        if installed:
-            names = ", ".join(installed)
-            return self._build_block_message(
-                request,
-                f"Runtime skill auto-creation is blocked because this thread already installed: {names}.",
-            )
-
-        if attempts >= self.max_auto_create_attempts:
-            return self._build_block_message(
-                request,
-                "Runtime skill auto-creation retry limit reached for this thread.",
-            )
-
-        if last_policy_allowed is not True:
-            reason = last_policy_reason or "missing_policy_decision"
-            return self._build_block_message(
-                request,
-                "Runtime skill auto-creation requires an ALLOW result from "
-                f"`{_EVALUATE_SKILL_CREATION_TOOL}` first. Current policy state: {reason}.",
-            )
+        blocked = self._validate_runtime_install_preconditions(request)
+        if blocked is not None:
+            return blocked
 
         result = await handler(request)
         return self._handle_runtime_install(request.state, request, result)

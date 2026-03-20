@@ -29,26 +29,26 @@ def evaluate_skill_creation_tool(
     normal_tools_too_costly_or_error_prone: bool = False,
     skill_would_improve_reliability: bool = False,
 ) -> Command:
-    """Evaluate whether runtime auto-creation of a new skill is allowed.
+    """评估当前是否允许在运行时自动创建新 skill。
 
-    Call this before reading `runtime-skill-builder` or installing a runtime-generated
-    `.skill` package. The tool applies the tested `creation_policy.py` rules and stores
-    the latest decision in thread state.
+    在读取 `runtime-skill-builder` 或安装运行时生成的 `.skill` 包之前，
+    应先调用此工具。该工具会执行已经测试过的 `creation_policy.py` 规则，
+    并将最新判定结果写入线程状态。
 
     Args:
-        has_usable_skill: Whether an existing enabled skill already covers the task.
-        normal_tools_can_complete: Whether normal tools can complete the task directly.
-        normal_tools_result_stable: Whether the normal-tool result is stable and acceptable.
-        is_one_off_request: Whether the request is clearly one-off or temporary.
-        is_ambiguous_request: Whether the request is still ambiguous or underspecified.
-        user_explicitly_requests_reuse: Whether the user explicitly wants this workflow reused later.
-        likely_to_repeat: Whether the workflow is likely to recur.
-        has_stable_workflow: Whether the workflow has stable steps.
-        has_clear_inputs_outputs: Whether the workflow has clear inputs and outputs.
-        has_basic_test_plan: Whether a basic validation path can be defined.
-        normal_tools_failed_or_unstable: Whether normal tools already fail or produce unstable results.
-        normal_tools_too_costly_or_error_prone: Whether the normal-tool path is too costly or error-prone.
-        skill_would_improve_reliability: Whether a skill would clearly improve reliability or success rate.
+        has_usable_skill: 当前是否已有启用中的 skill 足以覆盖该任务。
+        normal_tools_can_complete: 普通工具链是否可以直接完成该任务。
+        normal_tools_result_stable: 普通工具链的结果是否稳定且可接受。
+        is_one_off_request: 当前请求是否明显属于一次性或临时性需求。
+        is_ambiguous_request: 当前请求是否仍然存在歧义或关键信息不足。
+        user_explicitly_requests_reuse: 用户是否明确表达希望后续复用该流程。
+        likely_to_repeat: 该流程后续是否大概率会重复出现。
+        has_stable_workflow: 该流程是否具备稳定步骤。
+        has_clear_inputs_outputs: 该流程是否具备清晰输入和输出。
+        has_basic_test_plan: 是否能够为该流程定义最基本的校验方案。
+        normal_tools_failed_or_unstable: 普通工具链是否已经失败过，或结果明显不稳定。
+        normal_tools_too_costly_or_error_prone: 普通工具链是否成本过高或容易出错。
+        skill_would_improve_reliability: skill 化后是否能明显提升可靠性或成功率。
     """
     thread_state = runtime.state or {}
     current_skill_state = dict(thread_state.get("skill_creation") or {})

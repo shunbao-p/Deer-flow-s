@@ -398,24 +398,52 @@ def get_skills_prompt_section(available_skills: set[str] | None = None) -> str:
         skill_items = "    <none>No enabled skills are currently available.</none>"
     skills_list = f"<available_skills>\n{skill_items}\n</available_skills>"
 
+    lifecycle_policy = "\n".join(
+        [
+            "**Custom Skill Lifecycle Policy:**",
+            "1. Lifecycle governance in this stage applies only to `skills/custom`, not to public skills.",
+            (
+                "2. Before creating any new custom skill, call `evaluate_skill_lifecycle` "
+                "with the proposed name, description, workflow, and input/output summary."
+            ),
+            (
+                "3. If `evaluate_skill_lifecycle` returns `same_name_exists` or "
+                "`similar_skill_exists`, prefer reusing the existing custom skill. "
+                "If that skill is disabled but still the best fit, re-enable it via "
+                "`enable_skill`. If it needs adjustment, read that skill and update it "
+                "in place via `update_custom_skill` instead of creating a new near-duplicate."
+            ),
+            (
+                "4. If `evaluate_skill_lifecycle` returns `multiple_similar_skills_exist`, "
+                "keep the primary match, avoid creating another near-duplicate, and only "
+                "call `disable_skill` for weaker duplicates when the user explicitly asks, "
+                "or when duplicate cleanup is already clearly supported by the lifecycle result. "
+                "Do not disable custom skills casually."
+            ),
+            "5. Never disable or overwrite public skills through lifecycle actions.",
+        ]
+    )
+
     if auto_create_enabled:
         if has_runtime_skill_builder:
             auto_create_policy = """**Runtime Skill Creation Policy:**
 1. First check whether an existing skill already covers the task. If yes, use that skill and do not create a new one.
 2. If no skill matches, check whether normal tools can complete the task with stable and acceptable quality. If yes, use normal tools and do not create a new skill.
-3. Do not create a skill for one-off, temporary, ambiguous, or poorly scoped requests.
-4. Before creating a new skill, call `evaluate_skill_creation` with concrete signals from the current task.
-5. If `evaluate_skill_creation` denies the request, do not create a new skill.
-6. Only if `evaluate_skill_creation` allows it should you load `runtime-skill-builder` via `read_file`, follow its workflow, then install the resulting `.skill` package.
-7. After installation, tell the user the new skill is available for later messages in the same thread."""
+3. Before creating any new custom skill, call `evaluate_skill_lifecycle`. If the lifecycle result is not `no_match`, do not create a new near-duplicate skill.
+4. Do not create a skill for one-off, temporary, ambiguous, or poorly scoped requests.
+5. After the lifecycle result is `no_match`, call `evaluate_skill_creation` with concrete signals from the current task.
+6. If `evaluate_skill_creation` denies the request, do not create a new skill.
+7. Only if `evaluate_skill_creation` allows it should you load `runtime-skill-builder` via `read_file`, follow its workflow, then install the resulting `.skill` package.
+8. After installation, tell the user the new skill is available for later messages in the same thread."""
         else:
             auto_create_policy = """**Runtime Skill Creation Policy:**
 1. First check whether an existing skill already covers the task. If yes, use that skill and do not create a new one.
 2. If no skill matches, check whether normal tools can complete the task with stable and acceptable quality. If yes, use normal tools and do not create a new skill.
-3. Do not create a skill for one-off, temporary, ambiguous, or poorly scoped requests.
-4. Before creating a new skill, call `evaluate_skill_creation` with concrete signals from the current task.
-5. If `evaluate_skill_creation` denies the request, do not create a new skill.
-6. If no `runtime-skill-builder` skill is available, do not improvise a replacement creation flow."""
+3. Before creating any new custom skill, call `evaluate_skill_lifecycle`. If the lifecycle result is not `no_match`, do not create a new near-duplicate skill.
+4. Do not create a skill for one-off, temporary, ambiguous, or poorly scoped requests.
+5. After the lifecycle result is `no_match`, call `evaluate_skill_creation` with concrete signals from the current task.
+6. If `evaluate_skill_creation` denies the request, do not create a new skill.
+7. If no `runtime-skill-builder` skill is available, do not improvise a replacement creation flow."""
     else:
         auto_create_policy = """**Runtime Skill Creation Policy:**
 Runtime skill auto-creation is disabled. Never create or install a new skill automatically. Use existing skills first, then normal tools."""
@@ -433,6 +461,8 @@ You have access to skills that provide optimized workflows for specific tasks. E
 **Skills are located at:** {container_base_path}
 
 {skills_list}
+
+{lifecycle_policy}
 
 {auto_create_policy}
 

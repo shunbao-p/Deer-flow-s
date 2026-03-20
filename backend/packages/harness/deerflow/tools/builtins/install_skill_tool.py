@@ -21,6 +21,7 @@ def install_skill_tool(
     runtime: ToolRuntime[ContextT, ThreadState],
     path: str,
     source: Literal["manual", "runtime_auto_create"] = "manual",
+    expected_skill_name: str | None = None,
 ) -> str:
     """Install a generated `.skill` archive from the current thread's user-data directory.
 
@@ -31,6 +32,9 @@ def install_skill_tool(
         path: Absolute virtual path to the `.skill` file, such as `/mnt/user-data/outputs/my-skill.skill`.
         source: Installation source marker. Use `runtime_auto_create` only for the runtime
             auto-created skill flow. Otherwise leave it as `manual`.
+        expected_skill_name: Optional candidate name already approved by lifecycle checks.
+            For runtime auto-create flows, pass the same name that was checked by
+            `evaluate_skill_lifecycle`.
     """
     thread_id = runtime.context.get("thread_id") if runtime is not None else None
     if not thread_id:
@@ -43,6 +47,11 @@ def install_skill_tool(
     try:
         resolved_path = get_paths().resolve_virtual_path(thread_id, path)
         result = install_skill_archive(resolved_path)
+        if expected_skill_name and result.skill_name != expected_skill_name:
+            return (
+                "Error: Installed skill name "
+                f"'{result.skill_name}' did not match expected skill '{expected_skill_name}'."
+            )
         return result.message
     except (SkillArchiveNotFoundError, InvalidSkillArchiveError, SkillAlreadyExistsError) as exc:
         return f"Error: {exc}"

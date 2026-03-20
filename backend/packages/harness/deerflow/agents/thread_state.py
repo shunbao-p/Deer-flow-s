@@ -21,6 +21,17 @@ class SkillCreationState(TypedDict):
     last_policy_reason: NotRequired[str | None]
 
 
+class SkillLifecycleState(TypedDict):
+    last_check_outcome: NotRequired[str | None]
+    last_reason: NotRequired[str | None]
+    checked_candidate_name: NotRequired[str | None]
+    primary_skill_name: NotRequired[str | None]
+    primary_skill_path: NotRequired[str | None]
+    primary_skill_enabled: NotRequired[bool | None]
+    matched_skill_names: NotRequired[list[str]]
+    disable_recommendations: NotRequired[list[str]]
+
+
 class ViewedImageData(TypedDict):
     base64: str
     mime_type: str
@@ -57,6 +68,7 @@ class ThreadState(AgentState):
     sandbox: NotRequired[SandboxState | None]
     thread_data: NotRequired[ThreadDataState | None]
     skill_creation: NotRequired[SkillCreationState | None]
+    skill_lifecycle: NotRequired[SkillLifecycleState | None]
     title: NotRequired[str | None]
     artifacts: Annotated[list[str], merge_artifacts]
     todos: NotRequired[list | None]

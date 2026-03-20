@@ -1,5 +1,5 @@
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from langchain.tools import ToolRuntime, tool
 from langgraph.typing import ContextT
@@ -25,6 +25,10 @@ _LOCAL_BASH_SYSTEM_PATH_PREFIXES = (
 )
 
 _DEFAULT_SKILLS_CONTAINER_PATH = "/mnt/skills"
+
+
+class DisabledSkillAccessError(PermissionError):
+    """Raised when a disabled custom skill is accessed through file tools."""
 
 
 def _get_skills_container_path() -> str:
@@ -102,8 +106,56 @@ def _resolve_skills_path(path: str) -> str:
     return str(Path(skills_host) / relative) if relative else skills_host
 
 
+def _get_disabled_custom_skill_for_path(path: str):
+    """Return the matching disabled custom skill for a virtual skills path, if any."""
+    if not _is_skills_path(path):
+        return None
+
+    skills_container = _get_skills_container_path().rstrip("/")
+    relative = path[len(skills_container) :].lstrip("/")
+    relative_path = PurePosixPath(relative)
+    parts = relative_path.parts
+    if len(parts) < 2 or parts[0] != "custom":
+        return None
+
+    requested_relative = PurePosixPath(*parts[1:]).as_posix()
+
+    from deerflow.skills.loader import load_skills
+
+    custom_skills = [skill for skill in load_skills(enabled_only=False) if skill.category == "custom"]
+    custom_skills.sort(key=lambda skill: len(skill.skill_path), reverse=True)
+
+    for skill in custom_skills:
+        skill_path = skill.skill_path
+        if not skill_path:
+            continue
+        if requested_relative == skill_path or requested_relative.startswith(f"{skill_path}/"):
+            return None if skill.enabled else skill
+    return None
+
+
+def _ensure_custom_skill_read_allowed(path: str) -> None:
+    """Block reads under disabled custom skill paths."""
+    disabled_skill = _get_disabled_custom_skill_for_path(path)
+    if disabled_skill is None:
+        return
+
+    raise DisabledSkillAccessError(
+        f"Custom skill '{disabled_skill.name}' is currently disabled. Re-enable it before reading or using this skill."
+    )
+
+
 def _path_variants(path: str) -> set[str]:
     return {path, path.replace("\\", "/"), path.replace("/", "\\")}
+
+
+def _ensure_bash_command_skill_paths_allowed(command: str) -> None:
+    """Block bash commands that reference disabled custom skill paths."""
+    for absolute_path in _ABSOLUTE_PATH_PATTERN.findall(command):
+        if not _is_skills_path(absolute_path):
+            continue
+        _reject_path_traversal(absolute_path)
+        _ensure_custom_skill_read_allowed(absolute_path)
 
 
 def _sanitize_error(error: Exception, runtime: "ToolRuntime[ContextT, ThreadState] | None" = None) -> str:
@@ -334,6 +386,8 @@ def validate_local_bash_command_paths(command: str, thread_data: ThreadDataState
     if thread_data is None:
         raise SandboxRuntimeError("Thread data not available for local sandbox")
 
+    _ensure_bash_command_skill_paths_allowed(command)
+
     unsafe_paths: list[str] = []
 
     for absolute_path in _ABSOLUTE_PATH_PATTERN.findall(command):
@@ -555,6 +609,7 @@ def bash_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, com
     try:
         sandbox = ensure_sandbox_initialized(runtime)
         ensure_thread_directories_exist(runtime)
+        _ensure_bash_command_skill_paths_allowed(command)
         thread_data = get_thread_data(runtime)
         if is_local_sandbox(runtime):
             validate_local_bash_command_paths(command, thread_data)
@@ -563,6 +618,8 @@ def bash_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, com
             return mask_local_paths_in_output(output, thread_data)
         return sandbox.execute_command(command)
     except SandboxError as e:
+        return f"Error: {e}"
+    except DisabledSkillAccessError as e:
         return f"Error: {e}"
     except PermissionError as e:
         return f"Error: {e}"
@@ -582,6 +639,8 @@ def ls_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, path:
     try:
         sandbox = ensure_sandbox_initialized(runtime)
         ensure_thread_directories_exist(runtime)
+        if _is_skills_path(path):
+            _ensure_custom_skill_read_allowed(path)
         if is_local_sandbox(runtime):
             thread_data = get_thread_data(runtime)
             validate_local_tool_path(path, thread_data, read_only=True)
@@ -594,6 +653,8 @@ def ls_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, path:
             return "(empty)"
         return "\n".join(children)
     except SandboxError as e:
+        return f"Error: {e}"
+    except DisabledSkillAccessError as e:
         return f"Error: {e}"
     except FileNotFoundError:
         return f"Error: Directory not found: {requested_path}"
@@ -623,6 +684,8 @@ def read_file_tool(
     try:
         sandbox = ensure_sandbox_initialized(runtime)
         ensure_thread_directories_exist(runtime)
+        if _is_skills_path(path):
+            _ensure_custom_skill_read_allowed(path)
         if is_local_sandbox(runtime):
             thread_data = get_thread_data(runtime)
             validate_local_tool_path(path, thread_data, read_only=True)
@@ -637,6 +700,8 @@ def read_file_tool(
             content = "\n".join(content.splitlines()[start_line - 1 : end_line])
         return content
     except SandboxError as e:
+        return f"Error: {e}"
+    except DisabledSkillAccessError as e:
         return f"Error: {e}"
     except FileNotFoundError:
         return f"Error: File not found: {requested_path}"

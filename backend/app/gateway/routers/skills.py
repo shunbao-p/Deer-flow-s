@@ -1,8 +1,9 @@
 import json
 import logging
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.gateway.path_utils import resolve_thread_virtual_path
@@ -69,6 +70,26 @@ def _skill_to_response(skill: Skill) -> SkillResponse:
     )
 
 
+def _find_skill(skills: list[Skill], skill_name: str, category: str | None = None) -> Skill | None:
+    if category is None:
+        matches = [skill for skill in skills if skill.name == skill_name]
+    else:
+        matches = [skill for skill in skills if skill.name == skill_name and skill.category == category]
+
+    if not matches:
+        return None
+    if category is None and len(matches) > 1:
+        categories = ", ".join(sorted({skill.category for skill in matches}))
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Skill '{skill_name}' is ambiguous across categories: {categories}. "
+                "Specify the category query parameter."
+            ),
+        )
+    return matches[0]
+
+
 @router.get(
     "/skills",
     response_model=SkillsListResponse,
@@ -120,7 +141,10 @@ async def list_skills() -> SkillsListResponse:
     summary="Get Skill Details",
     description="Retrieve detailed information about a specific skill by its name.",
 )
-async def get_skill(skill_name: str) -> SkillResponse:
+async def get_skill(
+    skill_name: str,
+    category: Annotated[str | None, Query(description="Optional category to disambiguate same-name skills")] = None,
+) -> SkillResponse:
     """Get a specific skill by name.
 
     Args:
@@ -145,7 +169,7 @@ async def get_skill(skill_name: str) -> SkillResponse:
     """
     try:
         skills = load_skills(enabled_only=False)
-        skill = next((s for s in skills if s.name == skill_name), None)
+        skill = _find_skill(skills, skill_name, category)
 
         if skill is None:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
@@ -164,7 +188,11 @@ async def get_skill(skill_name: str) -> SkillResponse:
     summary="Update Skill",
     description="Update a skill's enabled status by modifying the extensions_config.json file.",
 )
-async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillResponse:
+async def update_skill(
+    skill_name: str,
+    request: SkillUpdateRequest,
+    category: Annotated[str | None, Query(description="Optional category to disambiguate same-name skills")] = None,
+) -> SkillResponse:
     """Update a skill's enabled status.
 
     This will modify the extensions_config.json file to update the enabled state.
@@ -201,7 +229,7 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
     try:
         # Find the skill to verify it exists
         skills = load_skills(enabled_only=False)
-        skill = next((s for s in skills if s.name == skill_name), None)
+        skill = _find_skill(skills, skill_name, category)
 
         if skill is None:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
@@ -217,7 +245,8 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
         extensions_config = get_extensions_config()
 
         # Update the skill's enabled status
-        extensions_config.skills[skill_name] = SkillStateConfig(enabled=request.enabled)
+        skill_key = ExtensionsConfig.get_skill_key(skill.name, skill.category)
+        extensions_config.skills[skill_key] = SkillStateConfig(enabled=request.enabled)
 
         # Convert to JSON format (preserve MCP servers config)
         config_data = {
@@ -236,7 +265,7 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
 
         # Reload the skills to get the updated status (for API response)
         skills = load_skills(enabled_only=False)
-        updated_skill = next((s for s in skills if s.name == skill_name), None)
+        updated_skill = _find_skill(skills, skill_name, skill.category)
 
         if updated_skill is None:
             raise HTTPException(status_code=500, detail=f"Failed to reload skill '{skill_name}' after update")

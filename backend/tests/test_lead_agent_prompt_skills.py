@@ -47,8 +47,13 @@ def test_skills_prompt_includes_runtime_creation_policy_when_enabled(monkeypatch
 
     result = prompt_module.get_skills_prompt_section()
 
+    assert "Custom Skill Lifecycle Policy" in result
+    assert "call `evaluate_skill_lifecycle`" in result
+    assert "`enable_skill`" in result
+    assert "update it in place via `update_custom_skill`" in result
     assert "Runtime Skill Creation Policy" in result
     assert "First check whether an existing skill already covers the task" in result
+    assert "If the lifecycle result is not `no_match`, do not create a new near-duplicate skill" in result
     assert "call `evaluate_skill_creation` with concrete signals" in result
     assert "load `runtime-skill-builder` via `read_file`" in result
     assert "/mnt/skills/public/runtime-skill-builder/SKILL.md" in result
@@ -70,6 +75,9 @@ def test_skills_prompt_forbids_auto_creation_when_disabled(monkeypatch):
 
     result = prompt_module.get_skills_prompt_section()
 
+    assert "Custom Skill Lifecycle Policy" in result
+    assert "call `evaluate_skill_lifecycle`" in result
+    assert "`enable_skill`" in result
     assert "Runtime skill auto-creation is disabled" in result
     assert "Never create or install a new skill automatically" in result
     assert "load `runtime-skill-builder` via `read_file`" not in result
@@ -90,6 +98,8 @@ def test_skills_prompt_does_not_improvise_without_runtime_builder(monkeypatch):
 
     result = prompt_module.get_skills_prompt_section()
 
+    assert "call `evaluate_skill_lifecycle`" in result
+    assert "`enable_skill`" in result
     assert "If no `runtime-skill-builder` skill is available" in result
     assert "call `evaluate_skill_creation` with concrete signals" in result
     assert "do not improvise a replacement creation flow" in result
@@ -104,6 +114,9 @@ def test_skills_prompt_keeps_policy_when_no_enabled_skills(monkeypatch):
 
     result = prompt_module.get_skills_prompt_section()
 
+    assert "Custom Skill Lifecycle Policy" in result
     assert "Runtime Skill Creation Policy" in result
     assert "No enabled skills are currently available." in result
+    assert "`enable_skill`" in result
+    assert "evaluate_skill_lifecycle" in result
     assert "evaluate_skill_creation" in result

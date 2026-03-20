@@ -21,7 +21,6 @@ import logging
 import mimetypes
 import os
 import shutil
-import tempfile
 import uuid
 from collections.abc import Generator
 from dataclasses import dataclass, field
@@ -150,21 +149,16 @@ class DeerFlowClient:
 
     @staticmethod
     def _atomic_write_json(path: Path, data: dict) -> None:
-        """Write JSON to *path* atomically (temp file + replace)."""
-        fd = tempfile.NamedTemporaryFile(
-            mode="w",
-            dir=path.parent,
-            suffix=".tmp",
-            delete=False,
-        )
-        try:
-            json.dump(data, fd, indent=2)
-            fd.close()
-            Path(fd.name).replace(path)
-        except BaseException:
-            fd.close()
-            Path(fd.name).unlink(missing_ok=True)
-            raise
+        """Write JSON to *path* in place.
+
+        We intentionally avoid temp-file + replace here because DeerFlow often
+        runs in Docker with ``extensions_config.json`` mounted as a single file.
+        Replacing a bind-mounted file can fail with ``Device or resource busy``.
+        """
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
 
     def _get_runnable_config(self, thread_id: str, **overrides) -> RunnableConfig:
         """Build a RunnableConfig for agent invocation."""
@@ -540,12 +534,13 @@ class DeerFlowClient:
             "enabled": skill.enabled,
         }
 
-    def update_skill(self, name: str, *, enabled: bool) -> dict:
+    def update_skill(self, name: str, *, enabled: bool, category: str | None = None) -> dict:
         """Update a skill's enabled status.
 
         Args:
             name: Skill name.
             enabled: New enabled status.
+            category: Optional category used to disambiguate same-name skills.
 
         Returns:
             Updated skill info dict.
@@ -557,16 +552,27 @@ class DeerFlowClient:
         from deerflow.skills.loader import load_skills
 
         skills = load_skills(enabled_only=False)
-        skill = next((s for s in skills if s.name == name), None)
+        if category is None:
+            matches = [s for s in skills if s.name == name]
+        else:
+            matches = [s for s in skills if s.name == name and s.category == category]
+        skill = matches[0] if matches else None
         if skill is None:
             raise ValueError(f"Skill '{name}' not found")
+        if category is None and len(matches) > 1:
+            categories = ", ".join(sorted({match.category for match in matches}))
+            raise ValueError(
+                f"Skill '{name}' is ambiguous across categories: {categories}. "
+                "Pass category='public' or category='custom'."
+            )
 
         config_path = ExtensionsConfig.resolve_config_path()
         if config_path is None:
             raise FileNotFoundError("Cannot locate extensions_config.json. Set DEER_FLOW_EXTENSIONS_CONFIG_PATH or ensure it exists in the project root.")
 
         extensions_config = get_extensions_config()
-        extensions_config.skills[name] = SkillStateConfig(enabled=enabled)
+        skill_key = ExtensionsConfig.get_skill_key(skill.name, skill.category)
+        extensions_config.skills[skill_key] = SkillStateConfig(enabled=enabled)
 
         config_data = {
             "mcpServers": {n: s.model_dump() for n, s in extensions_config.mcp_servers.items()},
@@ -578,9 +584,16 @@ class DeerFlowClient:
         self._agent = None
         reload_extensions_config()
 
-        updated = next((s for s in load_skills(enabled_only=False) if s.name == name), None)
+        updated = next(
+            (
+                s
+                for s in load_skills(enabled_only=False)
+                if s.name == skill.name and s.category == skill.category
+            ),
+            None,
+        )
         if updated is None:
-            raise RuntimeError(f"Skill '{name}' disappeared after update")
+            raise RuntimeError(f"Skill '{skill.name}' disappeared after update")
         return {
             "name": updated.name,
             "description": updated.description,

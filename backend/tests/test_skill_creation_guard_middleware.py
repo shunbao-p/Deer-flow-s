@@ -11,14 +11,18 @@ def _request(
     *,
     path: str = "/mnt/user-data/outputs/generated.skill",
     source: str = "runtime_auto_create",
+    expected_skill_name: str | None = None,
     state: dict | None = None,
     tool_call_id: str = "tc-1",
 ):
+    args = {"path": path, "source": source}
+    if expected_skill_name is not None:
+        args["expected_skill_name"] = expected_skill_name
     return SimpleNamespace(
         tool_call={
             "name": "install_skill",
             "id": tool_call_id,
-            "args": {"path": path, "source": source},
+            "args": args,
         },
         state=state or {},
         runtime=SimpleNamespace(context={"thread_id": "thread-1"}),
@@ -29,6 +33,11 @@ def test_runtime_install_success_records_attempt_and_installed_skill():
     middleware = SkillCreationGuardMiddleware()
     request = _request(
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "last_policy_allowed": True,
                 "last_policy_reason": "allow_auto_create",
@@ -58,6 +67,11 @@ def test_runtime_install_failure_records_last_failure():
     middleware = SkillCreationGuardMiddleware()
     request = _request(
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "last_policy_allowed": True,
                 "last_policy_reason": "allow_auto_create",
@@ -103,6 +117,11 @@ def test_runtime_path_is_guarded_even_without_runtime_source():
         path="/mnt/user-data/outputs/runtime-skills/generated.skill",
         source="manual",
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "last_policy_allowed": False,
                 "last_policy_reason": "missing_policy_decision",
@@ -120,6 +139,11 @@ def test_second_runtime_install_is_blocked_after_success():
     middleware = SkillCreationGuardMiddleware()
     request = _request(
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "auto_create_attempts": 1,
                 "installed_skill_names": ["report-writer"],
@@ -149,6 +173,11 @@ def test_retry_limit_blocks_after_two_failed_attempts():
     middleware = SkillCreationGuardMiddleware(max_auto_create_attempts=2)
     request = _request(
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "auto_create_attempts": 2,
                 "installed_skill_names": [],
@@ -170,6 +199,11 @@ def test_runtime_install_requires_allowed_policy_decision():
     middleware = SkillCreationGuardMiddleware()
     request = _request(
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "auto_create_attempts": 0,
                 "installed_skill_names": [],
@@ -185,6 +219,52 @@ def test_runtime_install_requires_allowed_policy_decision():
     assert isinstance(result, Command)
     assert "requires an ALLOW result" in result.update["messages"][0].content
     assert "normal_tools_sufficient" in result.update["messages"][0].content
+
+
+def test_runtime_install_requires_no_match_lifecycle_decision():
+    middleware = SkillCreationGuardMiddleware()
+    request = _request(
+        state={
+            "skill_lifecycle": {
+                "last_check_outcome": "similar_skill_exists",
+                "last_reason": "a similar custom skill already exists",
+                "primary_skill_name": "weather-helper",
+            },
+            "skill_creation": {
+                "last_policy_allowed": True,
+                "last_policy_reason": "allow_auto_create",
+            },
+        }
+    )
+
+    result = middleware.wrap_tool_call(request, lambda _req: None)
+
+    assert isinstance(result, Command)
+    assert "requires a `no_match` result" in result.update["messages"][0].content
+    assert "weather-helper" in result.update["messages"][0].content
+
+
+def test_runtime_install_requires_matching_checked_candidate_name():
+    middleware = SkillCreationGuardMiddleware()
+    request = _request(
+        expected_skill_name="other-skill",
+        state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
+            "skill_creation": {
+                "last_policy_allowed": True,
+                "last_policy_reason": "allow_auto_create",
+            },
+        },
+    )
+
+    result = middleware.wrap_tool_call(request, lambda _req: None)
+
+    assert isinstance(result, Command)
+    assert "does not match the most recent lifecycle-approved candidate" in result.update["messages"][0].content
 
 
 def test_before_model_injects_warning_after_failure():
@@ -228,6 +308,11 @@ def test_guard_preserves_existing_command_updates():
     middleware = SkillCreationGuardMiddleware()
     request = _request(
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "last_policy_allowed": True,
                 "last_policy_reason": "allow_auto_create",
@@ -253,6 +338,11 @@ async def test_async_runtime_install_success_records_state():
     middleware = SkillCreationGuardMiddleware()
     request = _request(
         state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
             "skill_creation": {
                 "last_policy_allowed": True,
                 "last_policy_reason": "allow_auto_create",
@@ -273,3 +363,66 @@ async def test_async_runtime_install_success_records_state():
     assert isinstance(result, Command)
     assert result.update["skill_creation"]["auto_create_attempts"] == 1
     assert result.update["skill_creation"]["installed_skill_names"] == ["report-writer"]
+
+
+@pytest.mark.anyio
+async def test_async_runtime_install_requires_no_match_lifecycle_decision():
+    middleware = SkillCreationGuardMiddleware()
+    request = _request(
+        state={
+            "skill_lifecycle": {
+                "last_check_outcome": "similar_skill_exists",
+                "last_reason": "a similar custom skill already exists",
+                "checked_candidate_name": "generated",
+                "primary_skill_name": "weather-helper",
+            },
+            "skill_creation": {
+                "last_policy_allowed": True,
+                "last_policy_reason": "allow_auto_create",
+            },
+        }
+    )
+
+    async def _handler(_req):
+        return ToolMessage(
+            content="Skill 'should-not-install' installed successfully",
+            tool_call_id="tc-1",
+            name="install_skill",
+        )
+
+    result = await middleware.awrap_tool_call(request, _handler)
+
+    assert isinstance(result, Command)
+    assert "requires a `no_match` result" in result.update["messages"][0].content
+    assert "weather-helper" in result.update["messages"][0].content
+
+
+@pytest.mark.anyio
+async def test_async_runtime_install_requires_matching_checked_candidate_name():
+    middleware = SkillCreationGuardMiddleware()
+    request = _request(
+        expected_skill_name="other-skill",
+        state={
+            "skill_lifecycle": {
+                "last_check_outcome": "no_match",
+                "last_reason": "no similar custom skill found",
+                "checked_candidate_name": "generated",
+            },
+            "skill_creation": {
+                "last_policy_allowed": True,
+                "last_policy_reason": "allow_auto_create",
+            },
+        },
+    )
+
+    async def _handler(_req):
+        return ToolMessage(
+            content="Skill 'should-not-install' installed successfully",
+            tool_call_id="tc-1",
+            name="install_skill",
+        )
+
+    result = await middleware.awrap_tool_call(request, _handler)
+
+    assert isinstance(result, Command)
+    assert "does not match the most recent lifecycle-approved candidate" in result.update["messages"][0].content

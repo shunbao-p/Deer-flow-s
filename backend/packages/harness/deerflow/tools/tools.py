@@ -6,10 +6,14 @@ from deerflow.config import get_app_config
 from deerflow.reflection import resolve_variable
 from deerflow.tools.builtins import (
     ask_clarification_tool,
+    disable_skill_tool,
+    enable_skill_tool,
     evaluate_skill_creation_tool,
+    evaluate_skill_lifecycle_tool,
     install_skill_tool,
     present_file_tool,
     task_tool,
+    update_custom_skill_tool,
     view_image_tool,
 )
 from deerflow.tools.builtins.tool_search import reset_deferred_registry
@@ -19,7 +23,11 @@ logger = logging.getLogger(__name__)
 BUILTIN_TOOLS = [
     present_file_tool,
     ask_clarification_tool,
+    enable_skill_tool,
+    evaluate_skill_lifecycle_tool,
     evaluate_skill_creation_tool,
+    update_custom_skill_tool,
+    disable_skill_tool,
     install_skill_tool,
 ]
 

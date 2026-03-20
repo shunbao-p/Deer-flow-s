@@ -6,7 +6,7 @@ description: Create, validate, package, and install a minimal new skill during a
 # Runtime Skill Builder
 
 Use this skill only after the lead agent has already decided that automatic skill creation is allowed for the current task.
-Before using this skill, the agent should have already called `evaluate_skill_creation` and received an `ALLOW` result.
+Before using this skill, the agent should have already called `evaluate_skill_lifecycle` and received `NO_MATCH`, then called `evaluate_skill_creation` and received `ALLOW`.
 
 ## Hard Guardrails
 
@@ -48,13 +48,18 @@ Write the packaged archive to:
 
 Before writing anything, quickly verify all of these:
 
-1. `evaluate_skill_creation` already returned `ALLOW`.
-2. No existing skill is sufficient.
-3. Normal tools are not a stable or efficient fit.
-4. The task is reusable and has stable steps.
-5. You can describe clear trigger conditions, inputs, outputs, and basic validation.
+1. `evaluate_skill_lifecycle` already returned `NO_MATCH`.
+2. `evaluate_skill_creation` already returned `ALLOW`.
+3. No existing skill is sufficient.
+4. No similar custom skill should be reused or updated in place instead.
+5. Normal tools are not a stable or efficient fit.
+6. The task is reusable and has stable steps.
+7. You can describe clear trigger conditions, inputs, outputs, and basic validation.
 
 If any item fails, stop and do not create a skill.
+If `evaluate_skill_lifecycle` found an existing custom skill, prefer reusing it.
+If that skill is disabled but still the best fit, re-enable it with `enable_skill`.
+If it needs adjustment, update it in place with `update_custom_skill`.
 
 ## Step 2: Design the Minimal Skill
 
@@ -117,7 +122,11 @@ Expected result:
 After packaging succeeds, call:
 
 ```python
-install_skill(path="/mnt/user-data/outputs/runtime-skills/<skill-name>.skill", source="runtime_auto_create")
+install_skill(
+    path="/mnt/user-data/outputs/runtime-skills/<skill-name>.skill",
+    source="runtime_auto_create",
+    expected_skill_name="<skill-name>",
+)
 ```
 
 Rules:

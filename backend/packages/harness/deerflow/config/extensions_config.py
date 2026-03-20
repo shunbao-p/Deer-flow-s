@@ -66,6 +66,11 @@ class ExtensionsConfig(BaseModel):
     )
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
+    @staticmethod
+    def get_skill_key(skill_name: str, skill_category: str) -> str:
+        """Get the config key for a skill."""
+        return f"{skill_category}:{skill_name}"
+
     @classmethod
     def resolve_config_path(cls, config_path: str | None = None) -> Path | None:
         """Resolve the extensions config file path.
@@ -192,7 +197,15 @@ class ExtensionsConfig(BaseModel):
         Returns:
             True if enabled, False otherwise
         """
-        skill_config = self.skills.get(skill_name)
+        skill_config = self.skills.get(self.get_skill_key(skill_name, skill_category))
+        if skill_config is not None:
+            return skill_config.enabled
+
+        # Backward compatibility for legacy name-only keys. Limit fallback to
+        # public skills so a custom skill does not accidentally inherit a
+        # public skill's state when both share the same name.
+        if skill_category == "public":
+            skill_config = self.skills.get(skill_name)
         if skill_config is None:
             # Default to enable for public & custom skill
             return skill_category in ("public", "custom")

@@ -551,6 +551,43 @@ class TestSkillsManagement:
         finally:
             tmp_path.unlink()
 
+    def test_update_skill_uses_category_key_when_provided(self, client):
+        skill = self._make_skill(enabled=True)
+        skill.category = "custom"
+        updated_skill = self._make_skill(enabled=False)
+        updated_skill.category = "custom"
+
+        ext_config = MagicMock()
+        ext_config.mcp_servers = {}
+        ext_config.skills = {}
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({}, f)
+            tmp_path = Path(f.name)
+
+        try:
+            with (
+                patch("deerflow.skills.loader.load_skills", side_effect=[[skill], [updated_skill]]),
+                patch("deerflow.client.ExtensionsConfig.resolve_config_path", return_value=tmp_path),
+                patch("deerflow.client.get_extensions_config", return_value=ext_config),
+                patch("deerflow.client.reload_extensions_config"),
+            ):
+                result = client.update_skill("test-skill", enabled=False, category="custom")
+            assert result["enabled"] is False
+            assert "custom:test-skill" in ext_config.skills
+        finally:
+            tmp_path.unlink()
+
+    def test_update_skill_rejects_ambiguous_name_without_category(self, client):
+        public_skill = self._make_skill(enabled=True)
+        public_skill.category = "public"
+        custom_skill = self._make_skill(enabled=True)
+        custom_skill.category = "custom"
+
+        with patch("deerflow.skills.loader.load_skills", return_value=[public_skill, custom_skill]):
+            with pytest.raises(ValueError, match="ambiguous across categories"):
+                client.update_skill("test-skill", enabled=False)
+
     def test_update_skill_not_found(self, client):
         with patch("deerflow.skills.loader.load_skills", return_value=[]):
             with pytest.raises(ValueError, match="not found"):

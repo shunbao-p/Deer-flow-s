@@ -17,8 +17,12 @@ def test_runtime_skill_builder_instructions_include_guardrails_and_install_flow(
 
     assert "Do not use for one-off, temporary, ambiguous" in content
     assert "Never write directly into `skills/custom`" in content
+    assert "evaluate_skill_lifecycle" in content
     assert "evaluate_skill_creation" in content
-    assert "install_skill(path=" in content
+    assert "enable_skill" in content
+    assert "update_custom_skill" in content
+    assert "install_skill(" in content
     assert 'source="runtime_auto_create"' in content
+    assert 'expected_skill_name="<skill-name>"' in content
     assert "/mnt/user-data/outputs/runtime-skills/<skill-name>.skill" in content
     assert "package_skill.py" in content

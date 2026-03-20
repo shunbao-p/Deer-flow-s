@@ -1,7 +1,7 @@
-"""Pure decision logic for runtime skill auto-creation.
+"""运行时自动创建 skill 的纯决策逻辑。
 
-This module keeps the "should we create a new skill?" rules out of prompts and
-runtime glue code so the behavior can be tested and reused consistently.
+本模块将“是否应该创建新 skill”的规则从 prompt 和运行时粘合代码中抽离，
+以便能够被稳定测试并在不同入口间复用。
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from enum import Enum
 
 
 class SkillCreationDecisionReason(str, Enum):
-    """Stable reason codes for skill creation decisions."""
+    """用于 skill 创建决策的稳定原因码。"""
 
     AUTO_CREATE_DISABLED = "auto_create_disabled"
     EXISTING_SKILL_AVAILABLE = "existing_skill_available"
@@ -26,7 +26,7 @@ class SkillCreationDecisionReason(str, Enum):
 
 @dataclass(frozen=True)
 class SkillCreationSignals:
-    """Signals collected before deciding whether auto-creation is allowed."""
+    """在判断是否允许自动创建前收集的信号。"""
 
     auto_create_enabled: bool = True
     has_usable_skill: bool = False
@@ -48,7 +48,7 @@ class SkillCreationSignals:
 
 @dataclass(frozen=True)
 class SkillCreationDecision:
-    """Decision result for runtime skill auto-creation."""
+    """运行时自动创建 skill 的决策结果。"""
 
     allowed: bool
     reason: SkillCreationDecisionReason
@@ -59,7 +59,7 @@ class SkillCreationDecision:
 
 
 def _evaluate_deposition(signals: SkillCreationSignals) -> tuple[bool, int]:
-    """Return whether the task is worth turning into a reusable workflow."""
+    """返回该任务是否值得沉淀为可复用工作流。"""
     repeatable = signals.user_explicitly_requests_reuse or signals.likely_to_repeat
     score = sum(
         [
@@ -74,7 +74,7 @@ def _evaluate_deposition(signals: SkillCreationSignals) -> tuple[bool, int]:
 
 
 def _evaluate_benefit(signals: SkillCreationSignals) -> tuple[bool, int]:
-    """Return whether skill creation has enough upside over ordinary tools."""
+    """返回相对普通工具而言，创建 skill 是否具有足够收益。"""
     score = sum(
         [
             signals.normal_tools_failed_or_unstable,
@@ -87,12 +87,12 @@ def _evaluate_benefit(signals: SkillCreationSignals) -> tuple[bool, int]:
 
 
 def evaluate_skill_creation(signals: SkillCreationSignals) -> SkillCreationDecision:
-    """Decide whether runtime skill auto-creation is allowed.
+    """判断是否允许在运行时自动创建 skill。
 
-    Decision order is intentionally conservative:
-    1. Respect hard stop flags and existing capabilities.
-    2. Reject tasks that should stay on the normal execution path.
-    3. Allow auto-creation only when both deposition and benefit are established.
+    决策顺序刻意保持保守：
+    1. 先尊重硬性停止条件和当前已有能力。
+    2. 过滤掉本应留在普通执行路径中的任务。
+    3. 只有当可沉淀性和收益性都成立时，才允许自动创建。
     """
 
     deposition_established, deposition_score = _evaluate_deposition(signals)

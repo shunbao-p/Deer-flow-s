@@ -1,13 +1,15 @@
 import asyncio
+import json
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
 from fastapi import HTTPException
 
-from app.gateway.routers.skills import SkillInstallRequest, install_skill
+from app.gateway.routers.skills import SkillInstallRequest, SkillUpdateRequest, get_skill, install_skill, update_skill
 from deerflow.skills.installer import (
     InvalidSkillArchiveError,
     SkillAlreadyExistsError,
@@ -194,3 +196,63 @@ def test_install_skill_route_maps_business_errors(monkeypatch, raised, status_co
 
     assert exc_info.value.status_code == status_code
     assert exc_info.value.detail == str(raised)
+
+
+def test_get_skill_route_rejects_ambiguous_name_without_category(monkeypatch) -> None:
+    public_skill = SimpleNamespace(
+        name="weather-helper",
+        description="public",
+        license=None,
+        category="public",
+        enabled=True,
+    )
+    custom_skill = SimpleNamespace(
+        name="weather-helper",
+        description="custom",
+        license=None,
+        category="custom",
+        enabled=True,
+    )
+    monkeypatch.setattr("app.gateway.routers.skills.load_skills", lambda enabled_only=False: [public_skill, custom_skill])
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(get_skill("weather-helper"))
+
+    assert exc_info.value.status_code == 409
+    assert "ambiguous across categories" in exc_info.value.detail
+
+
+def test_update_skill_route_uses_category_key(monkeypatch, tmp_path: Path) -> None:
+    config_path = tmp_path / "extensions_config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    custom_skill = SimpleNamespace(
+        name="weather-helper",
+        description="custom",
+        license=None,
+        category="custom",
+        enabled=False,
+    )
+    extensions_config = SimpleNamespace(mcp_servers={}, skills={})
+
+    monkeypatch.setattr(
+        "app.gateway.routers.skills.load_skills",
+        lambda enabled_only=False: [custom_skill],
+    )
+    monkeypatch.setattr(
+        "app.gateway.routers.skills.ExtensionsConfig.resolve_config_path",
+        lambda: config_path,
+    )
+    monkeypatch.setattr("app.gateway.routers.skills.get_extensions_config", lambda: extensions_config)
+    monkeypatch.setattr("app.gateway.routers.skills.reload_extensions_config", lambda: None)
+
+    result = asyncio.run(
+        update_skill(
+            "weather-helper",
+            SkillUpdateRequest(enabled=False),
+            category="custom",
+        )
+    )
+
+    saved = json.loads(config_path.read_text(encoding="utf-8"))
+    assert result.category == "custom"
+    assert saved["skills"]["custom:weather-helper"]["enabled"] is False

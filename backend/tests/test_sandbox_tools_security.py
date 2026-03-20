@@ -1,15 +1,23 @@
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
 from deerflow.sandbox.tools import (
     VIRTUAL_PATH_PREFIX,
+    DisabledSkillAccessError,
+    _ensure_bash_command_skill_paths_allowed,
+    _ensure_custom_skill_read_allowed,
+    _get_disabled_custom_skill_for_path,
     _is_skills_path,
     _reject_path_traversal,
     _resolve_and_validate_user_data_path,
     _resolve_skills_path,
+    bash_tool,
+    ls_tool,
     mask_local_paths_in_output,
+    read_file_tool,
     replace_virtual_path,
     replace_virtual_paths_in_command,
     validate_local_bash_command_paths,
@@ -21,6 +29,11 @@ _THREAD_DATA = {
     "uploads_path": "/tmp/deer-flow/threads/t1/user-data/uploads",
     "outputs_path": "/tmp/deer-flow/threads/t1/user-data/outputs",
 }
+
+_DISABLED_SKILL_ERROR = (
+    "Error: Custom skill 'weather-helper' is currently disabled. "
+    "Re-enable it before reading or using this skill."
+)
 
 
 # ---------- replace_virtual_path ----------
@@ -256,6 +269,33 @@ def test_validate_local_bash_command_paths_blocks_traversal_in_skills() -> None:
             )
 
 
+def test_ensure_bash_command_skill_paths_allowed_blocks_disabled_custom_skill() -> None:
+    with (
+        patch("deerflow.sandbox.tools._get_skills_container_path", return_value="/mnt/skills"),
+        patch(
+            "deerflow.skills.loader.load_skills",
+            return_value=[_skill("weather-helper", "weather/helper", enabled=False)],
+        ),
+    ):
+        with pytest.raises(DisabledSkillAccessError, match="currently disabled"):
+            _ensure_bash_command_skill_paths_allowed("cat /mnt/skills/custom/weather/helper/SKILL.md")
+
+
+def test_validate_local_bash_command_paths_blocks_disabled_custom_skill() -> None:
+    with (
+        patch("deerflow.sandbox.tools._get_skills_container_path", return_value="/mnt/skills"),
+        patch(
+            "deerflow.skills.loader.load_skills",
+            return_value=[_skill("weather-helper", "weather/helper", enabled=False)],
+        ),
+    ):
+        with pytest.raises(DisabledSkillAccessError, match="currently disabled"):
+            validate_local_bash_command_paths(
+                "cat /mnt/skills/custom/weather/helper/SKILL.md",
+                _THREAD_DATA,
+            )
+
+
 # ---------- Skills path tests ----------
 
 
@@ -322,3 +362,221 @@ def test_validate_local_tool_path_skills_custom_container_path() -> None:
                 _THREAD_DATA,
                 read_only=True,
             )
+
+
+def _skill(name: str, skill_path: str, *, enabled: bool, category: str = "custom"):
+    return SimpleNamespace(
+        name=name,
+        skill_path=skill_path,
+        enabled=enabled,
+        category=category,
+    )
+
+
+def test_get_disabled_custom_skill_for_path_matches_nested_disabled_custom_skill() -> None:
+    with (
+        patch("deerflow.sandbox.tools._get_skills_container_path", return_value="/mnt/skills"),
+        patch(
+            "deerflow.skills.loader.load_skills",
+            return_value=[
+                _skill("team-helper", "team/helper", enabled=False),
+                _skill("bootstrap", "bootstrap", enabled=True, category="public"),
+            ],
+        ),
+    ):
+        skill = _get_disabled_custom_skill_for_path("/mnt/skills/custom/team/helper/SKILL.md")
+        assert skill is not None
+        assert skill.name == "team-helper"
+
+
+def test_get_disabled_custom_skill_for_path_ignores_enabled_custom_skill() -> None:
+    with (
+        patch("deerflow.sandbox.tools._get_skills_container_path", return_value="/mnt/skills"),
+        patch(
+            "deerflow.skills.loader.load_skills",
+            return_value=[_skill("team-helper", "team/helper", enabled=True)],
+        ),
+    ):
+        assert _get_disabled_custom_skill_for_path("/mnt/skills/custom/team/helper/SKILL.md") is None
+
+
+def test_get_disabled_custom_skill_for_path_ignores_public_skill_path() -> None:
+    with (
+        patch("deerflow.sandbox.tools._get_skills_container_path", return_value="/mnt/skills"),
+        patch(
+            "deerflow.skills.loader.load_skills",
+            return_value=[_skill("bootstrap", "bootstrap", enabled=False, category="public")],
+        ),
+    ):
+        assert _get_disabled_custom_skill_for_path("/mnt/skills/public/bootstrap/SKILL.md") is None
+
+
+def test_ensure_custom_skill_read_allowed_blocks_disabled_custom_skill() -> None:
+    with (
+        patch("deerflow.sandbox.tools._get_skills_container_path", return_value="/mnt/skills"),
+        patch(
+            "deerflow.skills.loader.load_skills",
+            return_value=[_skill("weather-helper", "weather/helper", enabled=False)],
+        ),
+    ):
+        with pytest.raises(DisabledSkillAccessError, match="currently disabled"):
+            _ensure_custom_skill_read_allowed("/mnt/skills/custom/weather/helper/SKILL.md")
+
+
+def test_read_file_tool_blocks_disabled_custom_skill(monkeypatch) -> None:
+    runtime = SimpleNamespace(context={"thread_id": "thread-1"}, state={"thread_data": _THREAD_DATA})
+    sandbox = SimpleNamespace(read_file=lambda path: "should not be read")
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: True)
+    monkeypatch.setattr("deerflow.sandbox.tools.get_thread_data", lambda runtime: _THREAD_DATA)
+    monkeypatch.setattr("deerflow.sandbox.tools._get_skills_container_path", lambda: "/mnt/skills")
+    monkeypatch.setattr(
+        "deerflow.skills.loader.load_skills",
+        lambda enabled_only=False: [_skill("weather-helper", "weather/helper", enabled=False)],
+    )
+
+    result = read_file_tool.func(
+        runtime=runtime,
+        description="inspect disabled skill",
+        path="/mnt/skills/custom/weather/helper/SKILL.md",
+    )
+
+    assert result == _DISABLED_SKILL_ERROR
+
+
+def test_read_file_tool_allows_enabled_custom_skill(monkeypatch) -> None:
+    runtime = SimpleNamespace(context={"thread_id": "thread-1"}, state={"thread_data": _THREAD_DATA})
+    sandbox = SimpleNamespace(read_file=lambda path: "enabled skill content")
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: True)
+    monkeypatch.setattr("deerflow.sandbox.tools.get_thread_data", lambda runtime: _THREAD_DATA)
+    monkeypatch.setattr("deerflow.sandbox.tools._get_skills_container_path", lambda: "/mnt/skills")
+    monkeypatch.setattr("deerflow.sandbox.tools._resolve_skills_path", lambda path: "/host/skills/custom/weather/helper/SKILL.md")
+    monkeypatch.setattr(
+        "deerflow.skills.loader.load_skills",
+        lambda enabled_only=False: [_skill("weather-helper", "weather/helper", enabled=True)],
+    )
+
+    result = read_file_tool.func(
+        runtime=runtime,
+        description="inspect enabled skill",
+        path="/mnt/skills/custom/weather/helper/SKILL.md",
+    )
+
+    assert result == "enabled skill content"
+
+
+def test_read_file_tool_blocks_disabled_custom_skill_with_custom_container_path(monkeypatch) -> None:
+    runtime = SimpleNamespace(context={"thread_id": "thread-1"}, state={"thread_data": _THREAD_DATA})
+    sandbox = SimpleNamespace(read_file=lambda path: "should not be read")
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: True)
+    monkeypatch.setattr("deerflow.sandbox.tools.get_thread_data", lambda runtime: _THREAD_DATA)
+    monkeypatch.setattr("deerflow.sandbox.tools._get_skills_container_path", lambda: "/custom/skills")
+    monkeypatch.setattr(
+        "deerflow.skills.loader.load_skills",
+        lambda enabled_only=False: [_skill("weather-helper", "weather/helper", enabled=False)],
+    )
+
+    result = read_file_tool.func(
+        runtime=runtime,
+        description="inspect disabled skill",
+        path="/custom/skills/custom/weather/helper/SKILL.md",
+    )
+
+    assert result == _DISABLED_SKILL_ERROR
+
+
+def test_read_file_tool_blocks_disabled_custom_skill_in_non_local_sandbox(monkeypatch) -> None:
+    runtime = SimpleNamespace(context={"thread_id": "thread-1"}, state={"sandbox": {"sandbox_id": "aio"}})
+    sandbox = SimpleNamespace(read_file=lambda path: "should not be read")
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: False)
+    monkeypatch.setattr("deerflow.sandbox.tools._get_skills_container_path", lambda: "/mnt/skills")
+    monkeypatch.setattr(
+        "deerflow.skills.loader.load_skills",
+        lambda enabled_only=False: [_skill("weather-helper", "weather/helper", enabled=False)],
+    )
+
+    result = read_file_tool.func(
+        runtime=runtime,
+        description="inspect disabled skill",
+        path="/mnt/skills/custom/weather/helper/SKILL.md",
+    )
+
+    assert result == _DISABLED_SKILL_ERROR
+
+
+def test_ls_tool_blocks_disabled_custom_skill_in_non_local_sandbox(monkeypatch) -> None:
+    runtime = SimpleNamespace(context={"thread_id": "thread-1"}, state={"sandbox": {"sandbox_id": "aio"}})
+    sandbox = SimpleNamespace(list_dir=lambda path: ["should not be listed"])
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: False)
+    monkeypatch.setattr("deerflow.sandbox.tools._get_skills_container_path", lambda: "/mnt/skills")
+    monkeypatch.setattr(
+        "deerflow.skills.loader.load_skills",
+        lambda enabled_only=False: [_skill("weather-helper", "weather/helper", enabled=False)],
+    )
+
+    result = ls_tool.func(
+        runtime=runtime,
+        description="inspect disabled skill directory",
+        path="/mnt/skills/custom/weather/helper",
+    )
+
+    assert result == _DISABLED_SKILL_ERROR
+
+
+def test_bash_tool_blocks_disabled_custom_skill_in_local_sandbox(monkeypatch) -> None:
+    runtime = SimpleNamespace(context={"thread_id": "thread-1"}, state={"thread_data": _THREAD_DATA})
+    sandbox = SimpleNamespace(execute_command=lambda command: "should not run")
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: True)
+    monkeypatch.setattr("deerflow.sandbox.tools.get_thread_data", lambda runtime: _THREAD_DATA)
+    monkeypatch.setattr("deerflow.sandbox.tools._get_skills_container_path", lambda: "/mnt/skills")
+    monkeypatch.setattr(
+        "deerflow.skills.loader.load_skills",
+        lambda enabled_only=False: [_skill("weather-helper", "weather/helper", enabled=False)],
+    )
+
+    result = bash_tool.func(
+        runtime=runtime,
+        description="inspect disabled skill via bash",
+        command="cat /mnt/skills/custom/weather/helper/SKILL.md",
+    )
+
+    assert result == _DISABLED_SKILL_ERROR
+
+
+def test_bash_tool_blocks_disabled_custom_skill_in_non_local_sandbox(monkeypatch) -> None:
+    runtime = SimpleNamespace(context={"thread_id": "thread-1"}, state={"sandbox": {"sandbox_id": "aio"}})
+    sandbox = SimpleNamespace(execute_command=lambda command: "should not run")
+
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: False)
+    monkeypatch.setattr("deerflow.sandbox.tools._get_skills_container_path", lambda: "/mnt/skills")
+    monkeypatch.setattr(
+        "deerflow.skills.loader.load_skills",
+        lambda enabled_only=False: [_skill("weather-helper", "weather/helper", enabled=False)],
+    )
+
+    result = bash_tool.func(
+        runtime=runtime,
+        description="inspect disabled skill via bash",
+        command="cat /mnt/skills/custom/weather/helper/SKILL.md",
+    )
+
+    assert result == _DISABLED_SKILL_ERROR
