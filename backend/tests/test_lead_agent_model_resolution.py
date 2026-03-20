@@ -135,3 +135,18 @@ def test_build_middlewares_uses_resolved_model_name_for_vision(monkeypatch):
     )
 
     assert any(isinstance(m, lead_agent_module.ViewImageMiddleware) for m in middlewares)
+
+
+def test_build_middlewares_includes_skill_creation_guard(monkeypatch):
+    app_config = _make_app_config([_make_model("safe-model", supports_thinking=False)])
+
+    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda: None)
+    monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
+
+    middlewares = lead_agent_module._build_middlewares(
+        {"configurable": {"model_name": "safe-model", "is_plan_mode": False, "subagent_enabled": False}},
+        model_name="safe-model",
+    )
+
+    assert any(isinstance(m, lead_agent_module.SkillCreationGuardMiddleware) for m in middlewares)

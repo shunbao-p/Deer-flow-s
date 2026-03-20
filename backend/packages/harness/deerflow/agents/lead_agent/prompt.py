@@ -380,19 +380,45 @@ def get_skills_prompt_section(available_skills: set[str] | None = None) -> str:
 
         config = get_app_config()
         container_base_path = config.skills.container_path
+        auto_create_enabled = config.skills.auto_create_enabled
     except Exception:
         container_base_path = "/mnt/skills"
-
-    if not skills:
-        return ""
+        auto_create_enabled = True
 
     if available_skills is not None:
         skills = [skill for skill in skills if skill.name in available_skills]
 
-    skill_items = "\n".join(
-        f"    <skill>\n        <name>{skill.name}</name>\n        <description>{skill.description}</description>\n        <location>{skill.get_container_file_path(container_base_path)}</location>\n    </skill>" for skill in skills
-    )
+    has_runtime_skill_builder = any(skill.name == "runtime-skill-builder" for skill in skills)
+
+    if skills:
+        skill_items = "\n".join(
+            f"    <skill>\n        <name>{skill.name}</name>\n        <description>{skill.description}</description>\n        <location>{skill.get_container_file_path(container_base_path)}</location>\n    </skill>" for skill in skills
+        )
+    else:
+        skill_items = "    <none>No enabled skills are currently available.</none>"
     skills_list = f"<available_skills>\n{skill_items}\n</available_skills>"
+
+    if auto_create_enabled:
+        if has_runtime_skill_builder:
+            auto_create_policy = """**Runtime Skill Creation Policy:**
+1. First check whether an existing skill already covers the task. If yes, use that skill and do not create a new one.
+2. If no skill matches, check whether normal tools can complete the task with stable and acceptable quality. If yes, use normal tools and do not create a new skill.
+3. Do not create a skill for one-off, temporary, ambiguous, or poorly scoped requests.
+4. Before creating a new skill, call `evaluate_skill_creation` with concrete signals from the current task.
+5. If `evaluate_skill_creation` denies the request, do not create a new skill.
+6. Only if `evaluate_skill_creation` allows it should you load `runtime-skill-builder` via `read_file`, follow its workflow, then install the resulting `.skill` package.
+7. After installation, tell the user the new skill is available for later messages in the same thread."""
+        else:
+            auto_create_policy = """**Runtime Skill Creation Policy:**
+1. First check whether an existing skill already covers the task. If yes, use that skill and do not create a new one.
+2. If no skill matches, check whether normal tools can complete the task with stable and acceptable quality. If yes, use normal tools and do not create a new skill.
+3. Do not create a skill for one-off, temporary, ambiguous, or poorly scoped requests.
+4. Before creating a new skill, call `evaluate_skill_creation` with concrete signals from the current task.
+5. If `evaluate_skill_creation` denies the request, do not create a new skill.
+6. If no `runtime-skill-builder` skill is available, do not improvise a replacement creation flow."""
+    else:
+        auto_create_policy = """**Runtime Skill Creation Policy:**
+Runtime skill auto-creation is disabled. Never create or install a new skill automatically. Use existing skills first, then normal tools."""
 
     return f"""<skill_system>
 You have access to skills that provide optimized workflows for specific tasks. Each skill contains best practices, frameworks, and references to additional resources.
@@ -407,6 +433,8 @@ You have access to skills that provide optimized workflows for specific tasks. E
 **Skills are located at:** {container_base_path}
 
 {skills_list}
+
+{auto_create_policy}
 
 </skill_system>"""
 

@@ -13,6 +13,14 @@ class ThreadDataState(TypedDict):
     outputs_path: NotRequired[str | None]
 
 
+class SkillCreationState(TypedDict):
+    auto_create_attempts: NotRequired[int]
+    installed_skill_names: NotRequired[list[str]]
+    last_failure: NotRequired[str | None]
+    last_policy_allowed: NotRequired[bool | None]
+    last_policy_reason: NotRequired[str | None]
+
+
 class ViewedImageData(TypedDict):
     base64: str
     mime_type: str
@@ -48,6 +56,7 @@ def merge_viewed_images(existing: dict[str, ViewedImageData] | None, new: dict[s
 class ThreadState(AgentState):
     sandbox: NotRequired[SandboxState | None]
     thread_data: NotRequired[ThreadDataState | None]
+    skill_creation: NotRequired[SkillCreationState | None]
     title: NotRequired[str | None]
     artifacts: Annotated[list[str], merge_artifacts]
     todos: NotRequired[list | None]

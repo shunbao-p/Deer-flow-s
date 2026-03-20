@@ -45,6 +45,33 @@ def test_install_skill_tool_installs_from_thread_virtual_path(monkeypatch, tmp_p
     assert result == "Skill 'demo-skill' installed successfully"
 
 
+def test_install_skill_tool_accepts_runtime_auto_create_source(monkeypatch, tmp_path):
+    archive_path = tmp_path / "demo.skill"
+    archive_path.write_text("placeholder")
+
+    monkeypatch.setattr(
+        install_skill_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=lambda thread_id, path: archive_path),
+    )
+    monkeypatch.setattr(
+        install_skill_tool_module,
+        "install_skill_archive",
+        lambda path: SkillInstallResult(
+            skill_name="demo-skill",
+            message="Skill 'demo-skill' installed successfully",
+        ),
+    )
+
+    result = install_skill_tool_module.install_skill_tool.func(
+        runtime=_make_runtime(),
+        path="/mnt/user-data/outputs/demo.skill",
+        source="runtime_auto_create",
+    )
+
+    assert result == "Skill 'demo-skill' installed successfully"
+
+
 def test_install_skill_tool_requires_thread_id():
     result = install_skill_tool_module.install_skill_tool.func(
         runtime=_make_runtime(thread_id=None),

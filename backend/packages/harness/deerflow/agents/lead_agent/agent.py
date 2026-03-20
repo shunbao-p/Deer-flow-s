@@ -8,6 +8,7 @@ from deerflow.agents.lead_agent.prompt import apply_prompt_template
 from deerflow.agents.middlewares.clarification_middleware import ClarificationMiddleware
 from deerflow.agents.middlewares.loop_detection_middleware import LoopDetectionMiddleware
 from deerflow.agents.middlewares.memory_middleware import MemoryMiddleware
+from deerflow.agents.middlewares.skill_creation_guard_middleware import SkillCreationGuardMiddleware
 from deerflow.agents.middlewares.subagent_limit_middleware import SubagentLimitMiddleware
 from deerflow.agents.middlewares.title_middleware import TitleMiddleware
 from deerflow.agents.middlewares.todo_middleware import TodoMiddleware
@@ -232,6 +233,9 @@ def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_nam
 
     # Add MemoryMiddleware (after TitleMiddleware)
     middlewares.append(MemoryMiddleware(agent_name=agent_name))
+
+    # Guard runtime auto-created skill installs to avoid per-thread retry loops.
+    middlewares.append(SkillCreationGuardMiddleware())
 
     # Add ViewImageMiddleware only if the current model supports vision.
     # Use the resolved runtime model_name from make_lead_agent to avoid stale config values.

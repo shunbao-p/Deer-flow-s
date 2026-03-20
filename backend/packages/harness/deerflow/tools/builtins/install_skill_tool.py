@@ -1,4 +1,5 @@
 import logging
+from typing import Literal
 
 from langchain.tools import ToolRuntime, tool
 from langgraph.typing import ContextT
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 def install_skill_tool(
     runtime: ToolRuntime[ContextT, ThreadState],
     path: str,
+    source: Literal["manual", "runtime_auto_create"] = "manual",
 ) -> str:
     """Install a generated `.skill` archive from the current thread's user-data directory.
 
@@ -27,6 +29,8 @@ def install_skill_tool(
 
     Args:
         path: Absolute virtual path to the `.skill` file, such as `/mnt/user-data/outputs/my-skill.skill`.
+        source: Installation source marker. Use `runtime_auto_create` only for the runtime
+            auto-created skill flow. Otherwise leave it as `manual`.
     """
     thread_id = runtime.context.get("thread_id") if runtime is not None else None
     if not thread_id:

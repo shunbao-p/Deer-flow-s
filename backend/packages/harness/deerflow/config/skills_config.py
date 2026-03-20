@@ -14,6 +14,10 @@ class SkillsConfig(BaseModel):
         default="/mnt/skills",
         description="Path where skills are mounted in the sandbox container",
     )
+    auto_create_enabled: bool = Field(
+        default=True,
+        description="Whether the lead agent may auto-create and install new skills at runtime",
+    )
 
     def get_skills_path(self) -> Path:
         """

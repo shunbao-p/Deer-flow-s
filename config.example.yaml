@@ -243,6 +243,10 @@ skills:
   # Default: /mnt/skills
   container_path: /mnt/skills
 
+  # Allow the lead agent to create, test, and install new skills at runtime
+  # Disable this to force the agent to use only existing skills and normal tools
+  auto_create_enabled: true
+
 # ============================================================================
 # Title Generation Configuration
 # ============================================================================
