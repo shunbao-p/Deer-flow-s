@@ -1,9 +1,5 @@
 import json
 import logging
-import shutil
-import stat
-import tempfile
-import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -12,78 +8,14 @@ from pydantic import BaseModel, Field
 from app.gateway.path_utils import resolve_thread_virtual_path
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
 from deerflow.skills import Skill, load_skills
-from deerflow.skills.loader import get_skills_root_path
-from deerflow.skills.validation import _validate_skill_frontmatter
+from deerflow.skills.installer import (
+    InvalidSkillArchiveError,
+    SkillAlreadyExistsError,
+    SkillArchiveNotFoundError,
+    install_skill_archive,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _is_unsafe_zip_member(info: zipfile.ZipInfo) -> bool:
-    """Return True if the zip member path is absolute or attempts directory traversal."""
-    name = info.filename
-    if not name:
-        return False
-    path = Path(name)
-    if path.is_absolute():
-        return True
-    if ".." in path.parts:
-        return True
-    return False
-
-
-def _is_symlink_member(info: zipfile.ZipInfo) -> bool:
-    """Detect symlinks based on the external attributes stored in the ZipInfo."""
-    # Upper 16 bits of external_attr contain the Unix file mode when created on Unix.
-    mode = info.external_attr >> 16
-    return stat.S_ISLNK(mode)
-
-
-def _safe_extract_skill_archive(
-    zip_ref: zipfile.ZipFile,
-    dest_path: Path,
-    max_total_size: int = 512 * 1024 * 1024,
-) -> None:
-    """Safely extract a skill archive into dest_path with basic protections.
-
-    Protections:
-    - Reject absolute paths and directory traversal (..).
-    - Skip symlink entries instead of materialising them.
-    - Enforce a hard limit on total uncompressed size to mitigate zip bombs.
-    """
-    dest_root = Path(dest_path).resolve()
-    total_size = 0
-
-    for info in zip_ref.infolist():
-        # Reject absolute paths or any path that attempts directory traversal.
-        if _is_unsafe_zip_member(info):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Archive contains unsafe member path: {info.filename!r}",
-            )
-
-        # Skip any symlink entries instead of materialising them on disk.
-        if _is_symlink_member(info):
-            logger.warning("Skipping symlink entry in skill archive: %s", info.filename)
-            continue
-
-        # Basic unzip-bomb defence: bound the total uncompressed size we will write.
-        total_size += max(info.file_size, 0)
-        if total_size > max_total_size:
-            raise HTTPException(
-                status_code=400,
-                detail="Skill archive is too large or appears highly compressed.",
-            )
-
-        member_path = dest_root / info.filename
-        member_path_parent = member_path.parent
-        member_path_parent.mkdir(parents=True, exist_ok=True)
-
-        if info.is_dir():
-            member_path.mkdir(parents=True, exist_ok=True)
-            continue
-
-        with zip_ref.open(info) as src, open(member_path, "wb") as dst:
-            shutil.copyfileobj(src, dst)
 
 
 router = APIRouter(prefix="/api", tags=["skills"])
@@ -124,19 +56,6 @@ class SkillInstallResponse(BaseModel):
     success: bool = Field(..., description="Whether the installation was successful")
     skill_name: str = Field(..., description="Name of the installed skill")
     message: str = Field(..., description="Installation result message")
-
-
-def _should_ignore_archive_entry(path: Path) -> bool:
-    return path.name.startswith(".") or path.name == "__MACOSX"
-
-
-def _resolve_skill_dir_from_archive_root(temp_path: Path) -> Path:
-    extracted_items = [item for item in temp_path.iterdir() if not _should_ignore_archive_entry(item)]
-    if len(extracted_items) == 0:
-        raise HTTPException(status_code=400, detail="Skill archive is empty")
-    if len(extracted_items) == 1 and extracted_items[0].is_dir():
-        return extracted_items[0]
-    return temp_path
 
 
 def _skill_to_response(skill: Skill) -> SkillResponse:
@@ -378,61 +297,18 @@ async def install_skill(request: SkillInstallRequest) -> SkillInstallResponse:
     try:
         # Resolve the virtual path to actual file path
         skill_file_path = resolve_thread_virtual_path(request.thread_id, request.path)
-
-        # Check if file exists
-        if not skill_file_path.exists():
-            raise HTTPException(status_code=404, detail=f"Skill file not found: {request.path}")
-
-        # Check if it's a file
-        if not skill_file_path.is_file():
-            raise HTTPException(status_code=400, detail=f"Path is not a file: {request.path}")
-
-        # Check file extension
-        if not skill_file_path.suffix == ".skill":
-            raise HTTPException(status_code=400, detail="File must have .skill extension")
-
-        # Verify it's a valid ZIP file
-        if not zipfile.is_zipfile(skill_file_path):
-            raise HTTPException(status_code=400, detail="File is not a valid ZIP archive")
-
-        # Get the custom skills directory
-        skills_root = get_skills_root_path()
-        custom_skills_dir = skills_root / "custom"
-
-        # Create custom directory if it doesn't exist
-        custom_skills_dir.mkdir(parents=True, exist_ok=True)
-
-        # Extract to a temporary directory first for validation
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-
-            # Extract the .skill file with validation and protections.
-            with zipfile.ZipFile(skill_file_path, "r") as zip_ref:
-                _safe_extract_skill_archive(zip_ref, temp_path)
-
-            skill_dir = _resolve_skill_dir_from_archive_root(temp_path)
-
-            # Validate the skill
-            is_valid, message, skill_name = _validate_skill_frontmatter(skill_dir)
-            if not is_valid:
-                raise HTTPException(status_code=400, detail=f"Invalid skill: {message}")
-
-            if not skill_name:
-                raise HTTPException(status_code=400, detail="Could not determine skill name")
-
-            # Check if skill already exists
-            target_dir = custom_skills_dir / skill_name
-            if target_dir.exists():
-                raise HTTPException(status_code=409, detail=f"Skill '{skill_name}' already exists. Please remove it first or use a different name.")
-
-            # Move the skill directory to the custom skills directory
-            shutil.copytree(skill_dir, target_dir)
-
-        logger.info(f"Skill '{skill_name}' installed successfully to {target_dir}")
-        return SkillInstallResponse(success=True, skill_name=skill_name, message=f"Skill '{skill_name}' installed successfully")
+        result = install_skill_archive(skill_file_path)
+        logger.info("Skill '%s' installed successfully from %s", result.skill_name, request.path)
+        return SkillInstallResponse(success=True, skill_name=result.skill_name, message=result.message)
 
     except HTTPException:
         raise
+    except SkillArchiveNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except InvalidSkillArchiveError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SkillAlreadyExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to install skill: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to install skill: {str(e)}")

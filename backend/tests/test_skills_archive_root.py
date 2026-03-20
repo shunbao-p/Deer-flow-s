@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from fastapi import HTTPException
+import pytest
 
-from app.gateway.routers.skills import _resolve_skill_dir_from_archive_root
+from deerflow.skills.installer import InvalidSkillArchiveError, _resolve_skill_dir_from_archive_root
 
 
 def _write_skill(skill_dir: Path) -> None:
@@ -37,10 +37,7 @@ def test_resolve_skill_dir_rejects_archive_with_only_metadata(tmp_path: Path) ->
     (tmp_path / "__MACOSX").mkdir()
     (tmp_path / ".DS_Store").write_text("metadata", encoding="utf-8")
 
-    try:
+    with pytest.raises(InvalidSkillArchiveError) as error:
         _resolve_skill_dir_from_archive_root(tmp_path)
-    except HTTPException as error:
-        assert error.status_code == 400
-        assert error.detail == "Skill archive is empty"
-    else:
-        raise AssertionError("Expected HTTPException for metadata-only archive")
+
+    assert str(error.value) == "Skill archive is empty"
