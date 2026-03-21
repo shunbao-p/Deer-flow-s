@@ -66,6 +66,7 @@ services:
       - ${DEER_FLOW_CONFIG_PATH}:/app/backend/config.yaml:ro
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH}:/app/backend/extensions_config.json:ro
       - ../skills:/app/skills:ro
+      - ../custom-mcp-servers:/app/custom-mcp-servers
       - ${DEER_FLOW_HOME}:/app/backend/.deer-flow
       # DooD: AioSandboxProvider starts sandbox containers via host Docker daemon
       - ${DEER_FLOW_DOCKER_SOCKET}:/var/run/docker.sock
@@ -76,6 +77,8 @@ services:
       # DooD path/network translation
       - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_HOME}
       - DEER_FLOW_HOST_SKILLS_PATH=${DEER_FLOW_REPO_ROOT}/skills
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_HOST_PATH=${DEER_FLOW_REPO_ROOT}/custom-mcp-servers
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_PATH=/app/custom-mcp-servers
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
     env_file:
       - ../.env
@@ -99,6 +102,7 @@ services:
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH}:/app/extensions_config.json:ro
       - ${DEER_FLOW_HOME}:/app/backend/.deer-flow
       - ../skills:/app/skills:ro
+      - ../custom-mcp-servers:/app/custom-mcp-servers
       - ../backend/.langgraph_api:/app/backend/.langgraph_api
       # DooD: same as gateway
       - ${DEER_FLOW_DOCKER_SOCKET}:/var/run/docker.sock
@@ -109,6 +113,8 @@ services:
       - DEER_FLOW_EXTENSIONS_CONFIG_PATH=/app/extensions_config.json
       - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_HOME}
       - DEER_FLOW_HOST_SKILLS_PATH=${DEER_FLOW_REPO_ROOT}/skills
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_HOST_PATH=${DEER_FLOW_REPO_ROOT}/custom-mcp-servers
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_PATH=/app/custom-mcp-servers
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
       # Disable LangSmith tracing — LANGSMITH_API_KEY is not required.
       # Set LANGCHAIN_TRACING_V2=true and LANGSMITH_API_KEY in .env to enable.

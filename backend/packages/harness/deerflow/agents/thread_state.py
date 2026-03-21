@@ -32,6 +32,13 @@ class SkillLifecycleState(TypedDict):
     disable_recommendations: NotRequired[list[str]]
 
 
+class ToolGapState(TypedDict):
+    last_decision: NotRequired[str | None]
+    last_reason: NotRequired[str | None]
+    checked_task_summary: NotRequired[str | None]
+    checked_tool_name: NotRequired[str | None]
+
+
 class ViewedImageData(TypedDict):
     base64: str
     mime_type: str
@@ -69,6 +76,7 @@ class ThreadState(AgentState):
     thread_data: NotRequired[ThreadDataState | None]
     skill_creation: NotRequired[SkillCreationState | None]
     skill_lifecycle: NotRequired[SkillLifecycleState | None]
+    tool_gap: NotRequired[ToolGapState | None]
     title: NotRequired[str | None]
     artifacts: Annotated[list[str], merge_artifacts]
     todos: NotRequired[list | None]

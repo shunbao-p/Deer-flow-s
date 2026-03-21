@@ -389,6 +389,7 @@ def get_skills_prompt_section(available_skills: set[str] | None = None) -> str:
         skills = [skill for skill in skills if skill.name in available_skills]
 
     has_runtime_skill_builder = any(skill.name == "runtime-skill-builder" for skill in skills)
+    has_runtime_tool_builder = any(skill.name == "runtime-tool-builder" for skill in skills)
 
     if skills:
         skill_items = "\n".join(
@@ -448,6 +449,26 @@ def get_skills_prompt_section(available_skills: set[str] | None = None) -> str:
         auto_create_policy = """**Runtime Skill Creation Policy:**
 Runtime skill auto-creation is disabled. Never create or install a new skill automatically. Use existing skills first, then normal tools."""
 
+    if has_runtime_tool_builder:
+        tool_creation_policy = """**Runtime Tool Creation Policy:**
+1. First check whether an existing skill already covers the task. If yes, use that skill and do not create a new tool.
+2. Then check whether current normal tools, deferred tools, or existing MCP tools are already sufficient as a stable reusable execution capability. If yes, use them and do not create a new tool.
+3. A temporary bash/python script is not automatically equivalent to a formally registered tool. If the user needs a durable reusable execution capability for later messages, you may still call `evaluate_tool_gap`.
+4. Only when the task is missing an execution capability rather than a workflow should you call `evaluate_tool_gap`.
+5. If `evaluate_tool_gap` returns `NO_TOOL_GAP`, do not create a tool.
+6. If `evaluate_tool_gap` returns `SKILL_GAP`, prefer the runtime skill creation path instead of creating a tool.
+7. Only if `evaluate_tool_gap` returns `TOOL_GAP` should you load `runtime-tool-builder` via `read_file`.
+8. Follow `runtime-tool-builder` to create a minimal Python stdio MCP server in `/mnt/user-data/workspace/runtime-tools/<tool-name>/`.
+9. Install it only through `install_custom_mcp_server`, then register it only through `register_custom_mcp_server`.
+10. After successful registration, tell the user the new tool will be available in later messages in the same thread."""
+    else:
+        tool_creation_policy = """**Runtime Tool Creation Policy:**
+1. First check whether an existing skill already covers the task.
+2. Then check whether current normal tools, deferred tools, or existing MCP tools are already sufficient as a stable reusable execution capability.
+3. A temporary bash/python script is not automatically equivalent to a formally registered tool when the user clearly needs a durable reusable execution capability.
+4. Only when the task is clearly missing an execution capability should you call `evaluate_tool_gap`.
+5. If no `runtime-tool-builder` skill is available, do not improvise a replacement runtime tool creation flow."""
+
     return f"""<skill_system>
 You have access to skills that provide optimized workflows for specific tasks. Each skill contains best practices, frameworks, and references to additional resources.
 
@@ -465,6 +486,8 @@ You have access to skills that provide optimized workflows for specific tasks. E
 {lifecycle_policy}
 
 {auto_create_policy}
+
+{tool_creation_policy}
 
 </skill_system>"""
 

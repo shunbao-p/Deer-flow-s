@@ -121,6 +121,7 @@ services:
       - ../config.yaml:/app/config.yaml
       - ../extensions_config.json:/app/extensions_config.json
       - ../skills:/app/skills
+      - ../custom-mcp-servers:/app/custom-mcp-servers
       - ${DEER_FLOW_LOGS_PATH:-../.deer-flow-logs}:/app/logs
       # Mount uv cache for faster dependency installation
       - ~/.cache/uv:/root/.cache/uv
@@ -132,6 +133,8 @@ services:
       - DEER_FLOW_HOME=/app/backend/.deerflow
       - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_ROOT}/backend/.deerflow
       - DEER_FLOW_HOST_SKILLS_PATH=${DEER_FLOW_ROOT}/skills
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_HOST_PATH=${DEER_FLOW_ROOT}/custom-mcp-servers
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_PATH=/app/custom-mcp-servers
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
     env_file:
       - ../.env
@@ -158,6 +161,7 @@ services:
       - ../config.yaml:/app/config.yaml
       - ../extensions_config.json:/app/extensions_config.json
       - ../skills:/app/skills
+      - ../custom-mcp-servers:/app/custom-mcp-servers
       - ${DEER_FLOW_LOGS_PATH:-../.deer-flow-logs}:/app/logs
       # Mount uv cache for faster dependency installation
       - ~/.cache/uv:/root/.cache/uv
@@ -169,6 +173,8 @@ services:
       - DEER_FLOW_HOME=/app/backend/.deerflow
       - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_ROOT}/backend/.deerflow
       - DEER_FLOW_HOST_SKILLS_PATH=${DEER_FLOW_ROOT}/skills
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_HOST_PATH=${DEER_FLOW_ROOT}/custom-mcp-servers
+      - DEER_FLOW_CUSTOM_MCP_SERVERS_PATH=/app/custom-mcp-servers
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
     env_file:
       - ../.env

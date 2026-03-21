@@ -10,8 +10,11 @@ from deerflow.tools.builtins import (
     enable_skill_tool,
     evaluate_skill_creation_tool,
     evaluate_skill_lifecycle_tool,
+    evaluate_tool_gap_tool,
+    install_custom_mcp_server_tool,
     install_skill_tool,
     present_file_tool,
+    register_custom_mcp_server_tool,
     task_tool,
     update_custom_skill_tool,
     view_image_tool,
@@ -29,6 +32,9 @@ BUILTIN_TOOLS = [
     update_custom_skill_tool,
     disable_skill_tool,
     install_skill_tool,
+    evaluate_tool_gap_tool,
+    install_custom_mcp_server_tool,
+    register_custom_mcp_server_tool,
 ]
 
 SUBAGENT_TOOLS = [
