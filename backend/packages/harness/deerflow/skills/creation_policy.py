@@ -86,6 +86,26 @@ def _evaluate_benefit(signals: SkillCreationSignals) -> tuple[bool, int]:
     return established, score
 
 
+def _should_override_normal_tools_sufficient(signals: SkillCreationSignals) -> bool:
+    """判断是否允许在少数高置信场景下跳过普通工具充分的早期拒绝。
+
+    这里故意保持很窄，只针对这一类情况：
+    - 普通工具确实能稳定完成当前一次任务
+    - 但用户明确要求把该流程沉淀为后续长期复用能力
+    - 且该流程已经具备稳定 workflow、清晰输入输出
+    - 并且 skill 化后能明显提升长期一致性或可靠性
+
+    这样可以为 `S1` 这类场景留出放行空间，同时避免把轻度复用倾向的
+    普通结构化任务整体放开。
+    """
+    return (
+        signals.user_explicitly_requests_reuse
+        and signals.has_stable_workflow
+        and signals.has_clear_inputs_outputs
+        and signals.skill_would_improve_reliability
+    )
+
+
 def evaluate_skill_creation(signals: SkillCreationSignals) -> SkillCreationDecision:
     """判断是否允许在运行时自动创建 skill。
 
@@ -131,7 +151,11 @@ def evaluate_skill_creation(signals: SkillCreationSignals) -> SkillCreationDecis
             benefit_score=benefit_score,
         )
 
-    if signals.normal_tools_can_complete and signals.normal_tools_result_stable:
+    if (
+        signals.normal_tools_can_complete
+        and signals.normal_tools_result_stable
+        and not _should_override_normal_tools_sufficient(signals)
+    ):
         return SkillCreationDecision(
             allowed=False,
             reason=SkillCreationDecisionReason.NORMAL_TOOLS_SUFFICIENT,

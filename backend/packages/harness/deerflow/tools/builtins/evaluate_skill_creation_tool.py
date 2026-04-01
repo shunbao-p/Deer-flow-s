@@ -35,20 +35,26 @@ def evaluate_skill_creation_tool(
     应先调用此工具。该工具会执行已经测试过的 `creation_policy.py` 规则，
     并将最新判定结果写入线程状态。
 
+    注意：
+        `normal_tools_can_complete=True` 且 `normal_tools_result_stable=True`
+        不自动等于“必须拒绝创建”。如果用户明确要求把稳定 workflow
+        沉淀成后续长期复用能力，且 skill 化能显著提升一致性或可靠性，
+        仍应如实填写相关信号，让策略层统一判断。
+
     Args:
         has_usable_skill: 当前是否已有启用中的 skill 足以覆盖该任务。
         normal_tools_can_complete: 普通工具链是否可以直接完成该任务。
         normal_tools_result_stable: 普通工具链的结果是否稳定且可接受。
         is_one_off_request: 当前请求是否明显属于一次性或临时性需求。
         is_ambiguous_request: 当前请求是否仍然存在歧义或关键信息不足。
-        user_explicitly_requests_reuse: 用户是否明确表达希望后续复用该流程。
+        user_explicitly_requests_reuse: 用户是否明确表达希望后续复用或沉淀该流程。
         likely_to_repeat: 该流程后续是否大概率会重复出现。
         has_stable_workflow: 该流程是否具备稳定步骤。
         has_clear_inputs_outputs: 该流程是否具备清晰输入和输出。
         has_basic_test_plan: 是否能够为该流程定义最基本的校验方案。
         normal_tools_failed_or_unstable: 普通工具链是否已经失败过，或结果明显不稳定。
         normal_tools_too_costly_or_error_prone: 普通工具链是否成本过高或容易出错。
-        skill_would_improve_reliability: skill 化后是否能明显提升可靠性或成功率。
+        skill_would_improve_reliability: skill 化后是否能明显提升长期一致性、可靠性或成功率。
     """
     thread_state = runtime.state or {}
     current_skill_state = dict(thread_state.get("skill_creation") or {})

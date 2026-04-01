@@ -42,6 +42,40 @@ def test_normal_tools_sufficient_blocks_auto_creation():
     assert decision.reason is SkillCreationDecisionReason.NORMAL_TOOLS_SUFFICIENT
 
 
+def test_normal_tools_sufficient_can_be_overridden_for_explicit_reuse_workflow():
+    decision = evaluate_skill_creation(
+        _high_value_signals(
+            normal_tools_can_complete=True,
+            normal_tools_result_stable=True,
+            user_explicitly_requests_reuse=True,
+            likely_to_repeat=False,
+            has_stable_workflow=True,
+            has_clear_inputs_outputs=True,
+            skill_would_improve_reliability=True,
+        )
+    )
+
+    assert decision.allowed is True
+    assert decision.reason is SkillCreationDecisionReason.ALLOW_AUTO_CREATE
+
+
+def test_normal_tools_sufficient_still_blocks_without_explicit_reuse():
+    decision = evaluate_skill_creation(
+        _high_value_signals(
+            normal_tools_can_complete=True,
+            normal_tools_result_stable=True,
+            user_explicitly_requests_reuse=False,
+            likely_to_repeat=True,
+            has_stable_workflow=True,
+            has_clear_inputs_outputs=True,
+            skill_would_improve_reliability=True,
+        )
+    )
+
+    assert decision.allowed is False
+    assert decision.reason is SkillCreationDecisionReason.NORMAL_TOOLS_SUFFICIENT
+
+
 def test_one_off_request_blocks_auto_creation():
     decision = evaluate_skill_creation(_high_value_signals(is_one_off_request=True))
 

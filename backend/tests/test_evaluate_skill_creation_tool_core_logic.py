@@ -104,3 +104,32 @@ def test_evaluate_skill_creation_tool_uses_thread_attempts(monkeypatch):
 
     assert result.update["skill_creation"]["last_policy_allowed"] is False
     assert result.update["skill_creation"]["last_policy_reason"] == "thread_limit_reached"
+
+
+def test_evaluate_skill_creation_tool_allows_explicit_reuse_even_when_normal_tools_are_stable(monkeypatch):
+    monkeypatch.setattr(
+        evaluate_tool_module,
+        "get_app_config",
+        lambda: _make_app_config(auto_create_enabled=True),
+    )
+
+    result = evaluate_tool_module.evaluate_skill_creation_tool.func(
+        runtime=_make_runtime(),
+        has_usable_skill=False,
+        normal_tools_can_complete=True,
+        normal_tools_result_stable=True,
+        is_one_off_request=False,
+        is_ambiguous_request=False,
+        user_explicitly_requests_reuse=True,
+        likely_to_repeat=False,
+        has_stable_workflow=True,
+        has_clear_inputs_outputs=True,
+        has_basic_test_plan=True,
+        normal_tools_failed_or_unstable=False,
+        normal_tools_too_costly_or_error_prone=False,
+        skill_would_improve_reliability=True,
+    )
+
+    assert result.update["skill_creation"]["last_policy_allowed"] is True
+    assert result.update["skill_creation"]["last_policy_reason"] == "allow_auto_create"
+    assert result.update["messages"][0].content.startswith("ALLOW:")

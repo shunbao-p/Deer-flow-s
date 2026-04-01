@@ -54,6 +54,7 @@ def test_skills_prompt_includes_runtime_creation_policy_when_enabled(monkeypatch
     assert "update it in place via `update_custom_skill`" in result
     assert "Runtime Skill Creation Policy" in result
     assert "First check whether an existing skill already covers the task" in result
+    assert "does not automatically forbid skill creation" in result
     assert "If the lifecycle result is not `no_match`, do not create a new near-duplicate skill" in result
     assert "call `evaluate_skill_creation` with concrete signals" in result
     assert "load `runtime-skill-builder` via `read_file`" in result
@@ -111,6 +112,7 @@ def test_skills_prompt_does_not_improvise_without_runtime_builder(monkeypatch):
     assert "call `evaluate_skill_lifecycle`" in result
     assert "`enable_skill`" in result
     assert "If no `runtime-skill-builder` skill is available" in result
+    assert "does not automatically forbid skill creation" in result
     assert "call `evaluate_skill_creation` with concrete signals" in result
     assert "do not improvise a replacement creation flow" in result
 
