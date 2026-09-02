@@ -6,6 +6,7 @@ from .evaluate_skill_lifecycle_tool import evaluate_skill_lifecycle_tool
 from .evaluate_tool_gap_tool import evaluate_tool_gap_tool
 from .install_custom_mcp_server_tool import install_custom_mcp_server_tool
 from .install_skill_tool import install_skill_tool
+from .legal_augmentation_tool import legal_augmentation_tool
 from .present_file_tool import present_file_tool
 from .register_custom_mcp_server_tool import register_custom_mcp_server_tool
 from .setup_agent_tool import setup_agent
@@ -24,6 +25,7 @@ __all__ = [
     "disable_skill_tool",
     "install_custom_mcp_server_tool",
     "install_skill_tool",
+    "legal_augmentation_tool",
     "register_custom_mcp_server_tool",
     "update_custom_skill_tool",
     "view_image_tool",

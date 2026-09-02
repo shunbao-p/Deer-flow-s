@@ -558,6 +558,7 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
 
     # Get deferred tools section (tool_search)
     deferred_tools_section = get_deferred_tools_prompt_section()
+    legal_section = get_legal_augmentation_prompt_section()
 
     # Format the prompt with dynamic skills and memory
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
@@ -571,4 +572,27 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
         subagent_thinking=subagent_thinking,
     )
 
+    if legal_section:
+        prompt = f"{prompt}\n{legal_section}"
     return prompt + f"\n<current_date>{datetime.now().strftime('%Y-%m-%d, %A')}</current_date>"
+
+
+def get_legal_augmentation_prompt_section() -> str:
+    """Return legal-use rules only when the Legal RAG tool is enabled."""
+    try:
+        from deerflow.config.app_config import get_app_config
+
+        config = get_app_config()
+    except Exception:
+        return ""
+    legal = getattr(config, "legal_rag", None)
+    if legal is None or not getattr(legal, "enabled", False):
+        return ""
+    return """<legal_augmentation>
+Use `legal_augmentation` only when the user needs law-database grounding: statutes, articles, rights, duties, liability, or regulatory conclusions.
+Do not call it for ordinary facts, writing, coding, or other non-legal work.
+The tool chooses retrieval internally. Do not pick Milvus, Neo4j, or GraphRAG yourself.
+Treat `documents + evidence + refine.claims` as legal authority. The Legal `answer` is only an evidence-checked draft.
+Use supported claims with their sources. Qualify weak claims. Never include unsupported claims in the final answer.
+If evidence mode is insufficient, or the tool reports timeout/unavailable/invalid_response, say the law database is unavailable or evidence is insufficient. Do not invent a database-backed legal conclusion.
+</legal_augmentation>"""

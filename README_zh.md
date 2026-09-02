@@ -45,6 +45,7 @@ https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
       - [Sandbox 模式](#sandbox-模式)
       - [MCP Server](#mcp-server)
       - [IM 渠道](#im-渠道)
+  - [本仓库附加：Legal RAG 内部增强](#本仓库附加legal-rag-内部增强)
   - [从 Deep Research 到 Super Agent Harness](#从-deep-research-到-super-agent-harness)
   - [核心特性](#核心特性)
     - [Skills 与 Tools](#skills-与-tools)
@@ -317,6 +318,17 @@ FEISHU_APP_SECRET=your_app_secret
 | `/help` | 查看帮助 |
 
 > 没有命令前缀的消息会被当作普通聊天处理。DeerFlow 会自动创建 thread，并以对话方式回复。
+
+## 本仓库附加：Legal RAG 内部增强
+
+Deer-flow-s 额外接入了一条法律增强链路。Deer 仍是唯一对话主体；Legal RAG 是内部服务，不是第二 agent / 第二套会话。
+
+- 配置：`legal_rag.enabled`，默认 `false`；内部地址默认 `http://127.0.0.1:8003`
+- 工具：唯一内建工具 `legal_augmentation` → `POST /v1/augment`
+- 数据库：复用已有 Neo4j / Milvus，不在 Deer compose 中新建或复制法律库
+- 降级：Legal 超时或失败不阻断普通对话；`unsupported` claim 不得进入终答
+
+运行说明：[`services/legal_rag/README.md`](./services/legal_rag/README.md)。
 
 ## 从 Deep Research 到 Super Agent Harness
 

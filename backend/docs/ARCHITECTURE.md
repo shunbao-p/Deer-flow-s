@@ -45,8 +45,14 @@ This document provides a comprehensive overview of the DeerFlow backend architec
 │  │  - Tools                │  │  - Skills State                        │ │
 │  │  - Sandbox              │  │                                        │ │
 │  │  - Summarization        │  │                                        │ │
+│  │  - legal_rag            │  │                                        │ │
 │  └─────────────────────────┘  └────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────┘
+
+Optional internal hop (not a second agent or chat backend):
+
+LangGraph lead_agent → legal_augmentation tool → services/legal_rag:8003 /v1/augment
+→ existing Neo4j + Milvus. Nginx does not expose this service to users.
 ```
 
 ## Component Details
@@ -87,6 +93,15 @@ FastAPI application providing REST endpoints for non-agent operations.
 - `skills.py` - `/api/skills` - Skills management
 - `uploads.py` - `/api/threads/{id}/uploads` - File upload
 - `artifacts.py` - `/api/threads/{id}/artifacts` - Artifact serving
+
+### Internal Legal RAG service
+
+Optional augmentation process at `services/legal_rag/`, port `8003`.
+
+- Deer calls one built-in tool `legal_augmentation` when `legal_rag.enabled=true`.
+- The tool uses `deerflow.legal.client.LegalRAGClient` to `POST /v1/augment`.
+- Legal keeps Neo4j/Milvus/retrieval ownership. Deer never queries those databases.
+- This is not a second LangGraph graph, agent, or user-facing chat API.
 
 ### Agent Architecture
 

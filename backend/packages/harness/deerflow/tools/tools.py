@@ -84,6 +84,12 @@ def get_available_tools(
         builtin_tools.append(view_image_tool)
         logger.info(f"Including view_image_tool for model '{model_name}' (supports_vision=True)")
 
+    if getattr(config, "legal_rag", None) is not None and config.legal_rag.enabled:
+        from deerflow.tools.builtins.legal_augmentation_tool import legal_augmentation_tool
+
+        builtin_tools.append(legal_augmentation_tool)
+        logger.info("Including legal_augmentation_tool (legal_rag.enabled=True)")
+
     # Get cached MCP tools if enabled
     # NOTE: We use ExtensionsConfig.from_file() instead of config.extensions
     # to always read the latest configuration from disk. This ensures that changes

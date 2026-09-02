@@ -1,0 +1,42 @@
+{
+  "note": "Static input inventory only. Not a live baseline. No question text stored.",
+  "top10": {
+    "path": "/Users/yuh/Desktop/项目/Legal-consulting-expert/data/eval/eval_questions_v1_top10.jsonl",
+    "count": 10,
+    "expected_law_primary_counts": {
+      "中华人民共和国刑法": 2,
+      "中华人民共和国劳动合同法": 6,
+      "中华人民共和国未成年人保护法": 2
+    },
+    "rows_with_expected_article": 10,
+    "rows_with_pair_schema": 1
+  },
+  "full50": {
+    "path": "/Users/yuh/Desktop/项目/Legal-consulting-expert/data/eval/eval_questions_v1_full50.jsonl",
+    "count": 50,
+    "expected_law_primary_counts": {
+      "中华人民共和国刑法": 2,
+      "中华人民共和国劳动合同法": 9,
+      "中华人民共和国未成年人保护法": 7,
+      "中华人民共和国道路交通安全法": 6,
+      "上海市消费者权益保护条例": 6,
+      "中华人民共和国民法典": 5
+    },
+    "rows_with_expected_article": 20,
+    "rows_with_pair_schema": 1
+  },
+  "historical_source_eval_v1_4_reference_only": {
+    "note": "From Legal-consulting-expert/data/eval/results/metrics_summary_v1_4.json. NOT this-round baseline.",
+    "total_requests": 50,
+    "strategy_counts": {
+      "graph_rag": 28,
+      "hybrid_traditional": 19,
+      "combined": 2,
+      "empty_or_failed": 1
+    },
+    "graph_route_count": 30,
+    "graph_fallback_to_traditional_count": 1,
+    "request_failure_count": 1,
+    "implication": "Historical full50 already covered hybrid_traditional, graph_rag, and combined. This-round S01 must still re-run live; add a fixture only if a live path is missing."
+  }
+}

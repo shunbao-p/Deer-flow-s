@@ -1,4 +1,5 @@
 # Configuration for the DeerFlow application
+config_version: 2
 #
 # Guidelines:
 # - Copy this file to `config.yaml` and customize it for your environment
@@ -320,3 +321,13 @@ memory:
   fact_confidence_threshold: 0.7 # Minimum confidence for storing facts
   injection_enabled: true # Whether to inject memory into system prompt
   max_injection_tokens: 2000 # Maximum tokens for memory injection
+
+# ============================================================================
+# Legal RAG client (internal augmentation service)
+# ============================================================================
+# Disabled by default. Enabling exposes one built-in legal_augmentation tool.
+# Database credentials stay on the Legal service; Deer only stores the URL.
+legal_rag:
+  enabled: false
+  base_url: http://127.0.0.1:8003
+  timeout_seconds: 120

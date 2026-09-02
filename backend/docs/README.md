@@ -7,6 +7,7 @@ This directory contains detailed documentation for the DeerFlow backend.
 | Document | Description |
 |----------|-------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture overview |
+| [../../services/legal_rag/README.md](../../services/legal_rag/README.md) | Internal Legal RAG service |
 | [API.md](API.md) | Complete API reference |
 | [CONFIGURATION.md](CONFIGURATION.md) | Configuration options |
 | [SETUP.md](SETUP.md) | Quick setup guide |
