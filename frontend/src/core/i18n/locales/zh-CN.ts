@@ -49,11 +49,24 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用 🦌 DeerFlow，一个完全开源的超级智能体。通过内置和自定义的 Skills，\nDeerFlow 可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等，几乎可以做任何事情。",
-
+      "欢迎使用 🦌 DeerFlow-s，基于开源 DeerFlow 改造的智能体工作台。\n内置与自进化 Skills 兼备，覆盖日常任务并提供专业法律知识增强问答。",
     createYourOwnSkill: "创建你自己的 Agent SKill",
     createYourOwnSkillDescription:
       "创建你的 Agent Skill 来释放 DeerFlow 的潜力。通过自定义技能，DeerFlow\n可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n网页等作品，几乎可以做任何事情。",
+    starterQuestions: [
+      {
+        suggestion: "制止行凶致伤算正当防卫吗？",
+        prompt: "为制止他人行凶造成对方受伤，是否属于正当防卫？",
+      },
+      {
+        suggestion: "未签劳动合同能要赔偿吗？",
+        prompt: "公司入职后一直不签书面劳动合同，员工可以要求什么赔偿？",
+      },
+      {
+        suggestion: "今天上海的天气怎么样？",
+        prompt: "帮我查一下今天上海的天气怎么样？",
+      },
+    ],
   },
 
   // Clipboard

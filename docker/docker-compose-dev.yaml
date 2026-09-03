@@ -176,11 +176,36 @@ services:
       - DEER_FLOW_CUSTOM_MCP_SERVERS_HOST_PATH=${DEER_FLOW_ROOT}/custom-mcp-servers
       - DEER_FLOW_CUSTOM_MCP_SERVERS_PATH=/app/custom-mcp-servers
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
+      - LEGAL_RAG_BASE_URL=http://legal-rag:8003
     env_file:
       - ../.env
     extra_hosts:
       # For Linux: map host.docker.internal to host gateway
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - legal-rag
+    networks:
+      - deer-flow-dev
+    restart: unless-stopped
+
+  legal-rag:
+    build:
+      context: ../
+      dockerfile: services/legal_rag/Dockerfile
+    container_name: deer-flow-legal-rag
+    ports:
+      - "8003:8003"
+    env_file:
+      - path: ../services/legal_rag/.env
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 1800s
     networks:
       - deer-flow-dev
     restart: unless-stopped

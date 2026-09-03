@@ -119,10 +119,34 @@ services:
       # Disable LangSmith tracing — LANGSMITH_API_KEY is not required.
       # Set LANGCHAIN_TRACING_V2=true and LANGSMITH_API_KEY in .env to enable.
       - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LEGAL_RAG_BASE_URL=http://legal-rag:8003
     env_file:
       - ../.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - legal-rag
+    networks:
+      - deer-flow
+    restart: unless-stopped
+
+  # ── Internal Legal RAG augmentation (not exposed via Nginx) ───────────────
+  legal-rag:
+    build:
+      context: ../
+      dockerfile: services/legal_rag/Dockerfile
+    container_name: deer-flow-legal-rag
+    env_file:
+      - path: ../services/legal_rag/.env
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 1800s
     networks:
       - deer-flow
     restart: unless-stopped

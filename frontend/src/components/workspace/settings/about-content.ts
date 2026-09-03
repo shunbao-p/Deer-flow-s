@@ -2,7 +2,18 @@
  * About DeerFlow markdown content. Inlined to avoid raw-loader dependency
  * (Turbopack cannot resolve raw-loader for .md imports).
  */
-export const aboutMarkdown = `# 🦌 [About DeerFlow 2.0](https://github.com/bytedance/deer-flow)
+export const aboutMarkdown = `# 🦌 关于本项目
+
+这是 **DeerFlow-s**，面向法律咨询场景的智能体工作台。当前版本主要强化两件事：
+
+- **受控自演化**：在日常使用中自动长出手脚实现自进化，越用越聪明。日常任务遇到 Skill / Tool 缺口，系统能在权限边界内把缺口炼成可复用能力，已实现缺口发现-制作测试-安装复用-治理的全自动自进化闭环链路。
+- **法律知识增强检索**：基于 Neo4j + Milvus 搭建双引擎检索架构设计 RAG 检索能力增强，围绕法律场景中的条文召回、证据约束和回答可信度优化核心链路，当 DeerFlow-s 遇到法律领域相关问题时自动触发信息检索并给出更权威、更可信的证据回答。
+
+本项目基于开源 [DeerFlow](https://github.com/bytedance/deer-flow) 改造，源码见 [Deer-flow-s](https://github.com/shunbao-p/Deer-flow-s)。下面保留原 DeerFlow 的介绍：
+
+---
+
+# 🦌 [About DeerFlow 2.0](https://github.com/bytedance/deer-flow)
 
 > **From Open Source, Back to Open Source**
 

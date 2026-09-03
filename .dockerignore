@@ -28,6 +28,9 @@ wheels/
 .installed.cfg
 *.egg
 .venv/
+**/.venv/
+services/legal_rag/.venv/
+.omx/
 
 # Web
 node_modules

@@ -230,6 +230,21 @@ models:
 - `NOVITA_API_KEY` - Novita API key (OpenAI-compatible endpoint)
 - `TAVILY_API_KEY` - Tavily search API key
 - `DEER_FLOW_CONFIG_PATH` - Custom config file path
+- `LEGAL_RAG_BASE_URL` - Optional override for the internal Legal RAG service URL
+
+### Legal RAG
+
+Disabled by default. Enabling exposes one built-in tool; it does not add a second agent.
+
+```yaml
+legal_rag:
+  enabled: false
+  base_url: http://127.0.0.1:8003
+  timeout_seconds: 120
+```
+
+- Database credentials stay in `services/legal_rag/.env`, not in Deer `config.yaml`.
+- Runtime, health, and evaluation commands: `services/legal_rag/README.md`.
 
 ## Configuration Location
 

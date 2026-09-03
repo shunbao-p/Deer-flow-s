@@ -49,11 +49,26 @@ export const enUS: Translations = {
   welcome: {
     greeting: "Hello, again!",
     description:
-      "Welcome to 🦌 DeerFlow, an open source super agent. With built-in and custom skills, DeerFlow helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
-
+      "Welcome to 🦌 DeerFlow-s, an agent harness built upon DeerFlow.\nEquipped with built-in & self-evolving skills for daily tasks and grounded legal Q&A.",
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
       "Create your own skill to release the power of DeerFlow. With customized skills,\nDeerFlow can help you search on the web, analyze data, and generate\n artifacts like slides, web pages and do almost anything.",
+    starterQuestions: [
+      {
+        suggestion: "Is stopping an attacker self-defense?",
+        prompt:
+          "If I injure someone while stopping a violent attack, is that self-defense?",
+      },
+      {
+        suggestion: "Unsigned contract compensation?",
+        prompt:
+          "The company never signed a written contract. What compensation can I claim?",
+      },
+      {
+        suggestion: "Shanghai weather today?",
+        prompt: "What's the weather like in Shanghai today?",
+      },
+    ],
   },
 
   // Clipboard

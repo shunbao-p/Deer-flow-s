@@ -202,6 +202,23 @@ For detailed runtime configuration, refer to:
 - [`backend/docs/MCP_SERVER.md`](./backend/docs/MCP_SERVER.md)
 - [`backend/docs/ARCHITECTURE.md`](./backend/docs/ARCHITECTURE.md)
 
+## Legal RAG 内部增强
+
+本仓库可以把既有法律 RAG 接成 **Deer 的一个内建工具**，不是第二 agent，也不是第二套聊天后端。
+
+```text
+用户 ↔ Deer lead_agent ↔ legal_augmentation 工具 ↔ 内部服务 :8003 /v1/augment
+```
+
+- 默认关闭：`config.yaml` 里 `legal_rag.enabled: false`
+- 打开后，法律问题才允许调用唯一工具 `legal_augmentation`
+- 权威字段是 `documents + evidence + refine.claims`；Legal `answer` 只是草稿
+- `unsupported` claim 不得进入最终回答
+- Neo4j / Milvus 仍由 `services/legal_rag/` 连接**已有库**，Deer 不直连、不复制、不重建
+- 服务不可用时，普通对话继续，只说明法律库不可用或证据不足
+
+启用与评测见 [`services/legal_rag/README.md`](./services/legal_rag/README.md)。
+
 ## 如何体验这个 Fork 独有的能力
 
 把项目跑起来只是第一步。这个 fork 真正的差异化价值，在于运行时 `skill` 和运行时 `tool` 的受控自演化链路。

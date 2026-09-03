@@ -328,3 +328,30 @@ config.yaml
 | MCP工具加载 | `src/mcp/tools.py` |
 | 子Agent执行器 | `src/subagents/executor.py` |
 | 配置总入口 | `src/config/app_config.py` |
+
+---
+
+## 八、Legal RAG 内部增强（本仓库附加）
+
+Legal RAG **不是**第二 agent，也不是第二套 Gateway/聊天后端。对话仍只走现有 `lead_agent`。
+
+```
+用户
+  → Frontend / Gateway / LangGraph（不变）
+  → lead_agent 按需调用 built-in tool `legal_augmentation`
+  → deerflow/legal/client.py
+  → 内部服务 services/legal_rag :8003
+  → POST /v1/augment → ask_question_payload()
+  → 既有 Neo4j + Milvus（不复制、不重建）
+```
+
+| 功能 | 文件路径 |
+|------|---------|
+| Deer 配置 | `packages/harness/deerflow/config/legal_rag_config.py` |
+| v1 契约 / 客户端 | `packages/harness/deerflow/legal/` |
+| 唯一法律工具 | `packages/harness/deerflow/tools/builtins/legal_augmentation_tool.py` |
+| 触发与证据规则 | `packages/harness/deerflow/agents/lead_agent/prompt.py` |
+| Legal 服务 | `services/legal_rag/` |
+| 无会话入口 | `services/legal_rag/api/app.py` |
+
+`legal_rag.enabled=false` 时工具和 prompt 都不注入。Gateway / LangGraph 不以 Legal health 为启动前置。

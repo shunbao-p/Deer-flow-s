@@ -98,18 +98,12 @@ export function WorkspaceNavMenu() {
                     {t.common.settings}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled>
+                    <GlobeIcon />
+                    {t.workspace.officialWebsite}
+                  </DropdownMenuItem>
                   <a
-                    href="https://deerflow.tech/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <DropdownMenuItem>
-                      <GlobeIcon />
-                      {t.workspace.officialWebsite}
-                    </DropdownMenuItem>
-                  </a>
-                  <a
-                    href="https://github.com/bytedance/deer-flow"
+                    href="https://github.com/shunbao-p/Deer-flow-s"
                     target="_blank"
                     rel="noopener noreferrer"
                   >

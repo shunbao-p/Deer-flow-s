@@ -40,6 +40,10 @@ export interface Translations {
     description: string;
     createYourOwnSkill: string;
     createYourOwnSkillDescription: string;
+    starterQuestions: {
+      suggestion: string;
+      prompt: string;
+    }[];
   };
 
   // Clipboard
